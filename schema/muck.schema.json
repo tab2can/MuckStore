@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muckstore.dev/schema/muck.schema.json",
+  "title": "Muck Store program manifest",
+  "description": "The only required contract between a program and Muck Store. Programs themselves need no Muck SDK.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "license", "summary", "source", "entry", "install"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+){1,}$",
+      "description": "Reverse-DNS identifier, e.g. com.author.program"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "license": { "type": "string", "minLength": 1, "description": "SPDX identifier, e.g. MIT" },
+    "summary": { "type": "string", "minLength": 8, "maxLength": 280 },
+    "description": { "type": "string" },
+    "categories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["github"],
+      "properties": {
+        "github": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "description": "Public GitHub repository as owner/repo"
+        }
+      }
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path to the executable or script inside the installed payload"
+    },
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["portable", "archive", "msi", "nsis", "inno", "script", "runtime"]
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "platform", "sha256"],
+            "properties": {
+              "file": { "type": "string" },
+              "platform": {
+                "type": "string",
+                "enum": ["windows-x64", "windows-arm64", "any"]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-fA-F0-9]{64}$"
+              },
+              "url": { "type": "string", "format": "uri" }
+            }
+          }
+        },
+        "silentArgs": { "type": "string" },
+        "installdirProperty": { "type": "string" },
+        "postinstall": {
+          "type": "string",
+          "description": "Relative path to a post-install script. Hash must be listed in assets or postinstallSha256."
+        },
+        "postinstallSha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "shortcuts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "startMenu": { "type": "boolean", "default": true },
+            "desktop": { "type": "boolean", "default": false }
+          }
+        }
+      }
+    },
+    "runtimes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": ["python", "node", "dotnet"]
+          },
+          "version": { "type": "string" },
+          "strategy": {
+            "type": "string",
+            "enum": ["system", "download", "bundle"],
+            "default": "system"
+          }
+        }
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "network",
+          "filesystem",
+          "autostart",
+          "input-hook",
+          "clipboard",
+          "notifications",
+          "screenshot",
+          "shell-integration",
+          "other-process",
+          "windows-settings",
+          "admin"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "filesystemPaths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional path patterns related to the filesystem permission"
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the release binary is produced. Required for GitHub Release assets so Muck Store can prove they came from this repo's GitHub Actions, not a hand-uploaded file.",
+      "required": ["workflow"],
+      "properties": {
+        "workflow": {
+          "type": "string",
+          "minLength": 8,
+          "description": "Path to the release workflow in this repository, e.g. .github/workflows/release.yml"
+        },
+        "reproducible": {
+          "type": "boolean",
+          "default": true,
+          "description": "The workflow must be deterministic (pinned actions, locked dependencies, SOURCE_DATE_EPOCH where applicable)."
+        },
+        "attestations": {
+          "type": "string",
+          "enum": ["required"],
+          "default": "required",
+          "description": "GitHub Artifact Attestations (SLSA provenance) are mandatory for store distribution."
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "$ref": "#/$defs/settingsSchema" },
+        "schemaFile": { "type": "string" }
+      }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": ["github-releases"],
+          "default": "github-releases"
+        },
+        "includePrerelease": { "type": "boolean", "default": false }
+      }
+    },
+    "watchdog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "onCrash": {
+          "type": "string",
+          "enum": ["restart", "notify", "off"],
+          "default": "notify"
+        },
+        "maxRestarts": { "type": "integer", "minimum": 0, "maximum": 20, "default": 3 }
+      }
+    },
+    "i18n": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "summary": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "icon": { "type": "string" },
+        "screenshots": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "accent": { "type": "string" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "install": {
+            "properties": {
+              "kind": { "enum": ["archive", "msi", "nsis", "inno"] }
+            },
+            "required": ["kind"]
+          }
+        },
+        "required": ["install"]
+      },
+      "then": {
+        "required": ["build"],
+        "properties": {
+          "build": {
+            "required": ["workflow"]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "settingsSchema": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "object" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "properties": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/settingProperty" }
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "settingProperty": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "integer", "boolean", "array"]
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "default": true,
+        "enum": { "type": "array" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minLength": { "type": "integer" },
+        "maxLength": { "type": "integer" },
+        "x-muck-widget": {
+          "type": "string",
+          "enum": [
+            "toggle",
+            "slider",
+            "select",
+            "text",
+            "password",
+            "hotkey",
+            "path",
+            "color",
+            "number",
+            "list"
+          ]
+        },
+        "items": { "type": "object" }
+      }
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "$schema": "../../../schema/muck.schema.json",
+  "id": "com.muckstore.settings-gallery",
+  "name": "Settings Gallery",
+  "version": "1.0.0",
+  "license": "MIT",
+  "summary": "Shows every Muck settings widget so developers can copy the schema pattern.",
+  "description": "Official sample used to verify the store settings renderer. The program only reads MUCK_SETTINGS_PATH.",
+  "categories": ["developer"],
+  "tags": ["sample", "settings", "official"],
+  "source": {
+    "github": "muckstore/settings-gallery"
+  },
+  "entry": "gallery.ps1",
+  "install": {
+    "kind": "portable",
+    "shortcuts": {
+      "startMenu": false,
+      "desktop": false
+    }
+  },
+  "permissions": ["filesystem"],
+  "settings": {
+    "schema": {
+      "type": "object",
+      "title": "Gallery",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "title": "Enabled",
+          "default": true,
+          "x-muck-widget": "toggle"
+        },
+        "opacity": {
+          "type": "number",
+          "title": "Opacity",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.9,
+          "x-muck-widget": "slider"
+        },
+        "mode": {
+          "type": "string",
+          "title": "Mode",
+          "enum": ["quiet", "normal", "verbose"],
+          "default": "normal",
+          "x-muck-widget": "select"
+        },
+        "nickname": {
+          "type": "string",
+          "title": "Nickname",
+          "default": "developer",
+          "x-muck-widget": "text"
+        },
+        "secret": {
+          "type": "string",
+          "title": "Token",
+          "default": "",
+          "x-muck-widget": "password"
+        },
+        "hotkey": {
+          "type": "string",
+          "title": "Hotkey",
+          "default": "Ctrl+Shift+M",
+          "x-muck-widget": "hotkey"
+        },
+        "folder": {
+          "type": "string",
+          "title": "Notes folder",
+          "default": "",
+          "x-muck-widget": "path"
+        },
+        "accent": {
+          "type": "string",
+          "title": "Accent",
+          "default": "#d4a056",
+          "x-muck-widget": "color"
+        },
+        "retries": {
+          "type": "integer",
+          "title": "Retries",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 3,
+          "x-muck-widget": "number"
+        },
+        "tags": {
+          "type": "array",
+          "title": "Tags",
+          "default": ["sample"],
+          "x-muck-widget": "list"
+        }
+      }
+    }
+  },
+  "i18n": {
+    "tr": {
+      "name": "Ayar Galerisi",
+      "summary": "Geliştiricilerin kopyalayabileceği tüm Muck ayar bileşenlerini gösterir."
+    }
+  }
+}

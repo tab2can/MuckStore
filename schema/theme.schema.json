@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muckstore.dev/schema/theme.schema.json",
+  "title": "Muck Store theme pack",
+  "description": "Token-only theme. Arbitrary JavaScript and remote CSS imports are rejected.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "tokens"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "author": { "type": "string" },
+    "source": {
+      "type": "object",
+      "properties": {
+        "github": { "type": "string" }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bg", "surface", "text", "accent"],
+      "properties": {
+        "bg": { "$ref": "#/$defs/color" },
+        "bgElevated": { "$ref": "#/$defs/color" },
+        "surface": { "$ref": "#/$defs/color" },
+        "surfaceHover": { "$ref": "#/$defs/color" },
+        "border": { "$ref": "#/$defs/color" },
+        "text": { "$ref": "#/$defs/color" },
+        "textMuted": { "$ref": "#/$defs/color" },
+        "accent": { "$ref": "#/$defs/color" },
+        "accentText": { "$ref": "#/$defs/color" },
+        "danger": { "$ref": "#/$defs/color" },
+        "ok": { "$ref": "#/$defs/color" },
+        "warning": { "$ref": "#/$defs/color" },
+        "radius": { "type": "string" },
+        "radiusSm": { "type": "string" },
+        "font": { "type": "string" },
+        "blur": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    }
+  }
+}

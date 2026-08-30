@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Muck Store",
+  "version": "0.1.0",
+  "identifier": "com.muckstore.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1430",
+    "beforeBuildCommand": "npm run build && node scripts/pack-updater.mjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Muck Store",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "shadow": true,
+        "transparent": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' https: data: asset: http://asset.localhost https://avatars.githubusercontent.com https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://api.github.com https://raw.githubusercontent.com https://github.com https://objects.githubusercontent.com https://release-assets.githubusercontent.com; media-src 'self' https: data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Muck Store",
+    "copyright": "Copyright © 2026 Muck Store contributors",
+    "category": "Utility",
+    "shortDescription": "Open-source program store",
+    "longDescription": "Muck Store discovers, installs, and manages open-source programs from GitHub without requiring a vendor SDK.",
+    "licenseFile": "../LICENSE",
+    "externalBin": ["binaries/muck-updater"],
+    "resources": [
+      "../catalog",
+      "../programs",
+      "../schema",
+      "../themes"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "both",
+        "displayLanguageSelector": true,
+        "languages": ["English", "Turkish"],
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/nsis-header.bmp",
+        "sidebarImage": "windows/nsis-sidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "template": "windows/installer.nsi"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhFRDg4QjIxNDM0MDgzNkYKUldSdmcwQkRJWXZZanJJSXJ6aGpaalRRdjlMQzRBZ1d4S3Z2ekhsZDZQVDF6dmMyOGZnKzFjaDAK",
+      "endpoints": [
+        "https://github.com/tab2can/MuckStore/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

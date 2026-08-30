@@ -1,0 +1,59 @@
+# Release (GitHub Actions) — copy to `.github/workflows/release.yml`
+
+# Muck Store will only install Release assets that this workflow (in THIS
+# repository) built and attested. Do not attach a zip you built on a laptop.
+#
+# Before tagging: pin `uses:` lines to a full commit SHA.
+# Docs: docs/reproducible-builds.md
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reproducible clock
+        shell: pwsh
+        run: |
+          $epoch = git log -1 --format=%ct
+          echo "SOURCE_DATE_EPOCH=$epoch" >> $env:GITHUB_ENV
+
+      - name: Build
+        shell: pwsh
+        run: |
+          # Replace with your toolchain. The output path must be the file
+          # named in muck.json install.assets[].file
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Write-Output "hello from ${{ github.repository }}@${{ github.sha }}" |
+            Set-Content -NoNewline dist/program.txt
+          Compress-Archive -Path dist/program.txt -DestinationPath dist/program.zip -Force
+
+      - name: SHA-256 (paste into muck.json)
+        shell: pwsh
+        run: Get-FileHash -Algorithm SHA256 dist/program.zip | Format-List
+
+      - name: Attest provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/program.zip
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/program.zip --title "${{ github.ref_name }}" --generate-notes

@@ -1,0 +1,23 @@
+{
+  "id": "copper-paper",
+  "name": "Copper Paper",
+  "author": "Muck Store",
+  "tokens": {
+    "bg": "#16110c",
+    "bgElevated": "#1e1711",
+    "surface": "#241c14",
+    "surfaceHover": "#2c2319",
+    "border": "#3d3226",
+    "text": "#f3eadf",
+    "textMuted": "#b5a392",
+    "accent": "#e0a36a",
+    "accentText": "#1a120a",
+    "danger": "#e07060",
+    "ok": "#7dbe8a",
+    "warning": "#e0c06a",
+    "radius": "14px",
+    "radiusSm": "8px",
+    "font": "Segoe UI Variable, Segoe UI, system-ui, sans-serif",
+    "blur": "18px"
+  }
+}

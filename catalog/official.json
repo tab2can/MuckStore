@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "maintainers": ["muckstore"],
+  "programs": [
+    {
+      "id": "com.muckstore.quick-notes",
+      "official": true,
+      "featured": true,
+      "localResource": "programs/official/quick-notes"
+    },
+    {
+      "id": "com.muckstore.settings-gallery",
+      "official": true,
+      "featured": false,
+      "localResource": "programs/official/settings-gallery"
+    }
+  ]
+}

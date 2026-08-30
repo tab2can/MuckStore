@@ -1,0 +1,17 @@
+---
+description: GitHub’a yalnızca kullanıcı isteyince at; o zaman sürüm, tag ve Release otomatik
+alwaysApply: true
+---
+
+# GitHub publish
+
+Push **only** when the user says to put it on GitHub (`github a at`, `github'a at`, `github a gönder`, or equivalent). Do not push, tag, or open a Release during normal coding.
+
+When they do ask to put it on GitHub, do **all** of this without asking again:
+
+1. Bump the **patch** version (0.1.2 → 0.1.3) in `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, `src-tauri/updater/Cargo.toml`, and matching `src-tauri/Cargo.lock` package versions. Skip the bump only if HEAD is already that new version and has no tag yet.
+2. Commit any unpublished work (never `updater.key` or `*.exe`).
+3. Create annotated tag `vMAJOR.MINOR.PATCH` on that commit.
+4. `git push origin HEAD` and `git push origin vX.Y.Z`. The `v*` tag is what publishes GitHub Release installers.
+
+Do not wait for a second confirmation to tag. Minor/major bumps only if they name the version.

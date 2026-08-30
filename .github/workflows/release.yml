@@ -1,0 +1,95 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Windows ${{ matrix.arch }}
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rust_target: x86_64-pc-windows-msvc
+            arch: x64
+          - rust_target: i686-pc-windows-msvc
+            arch: x86
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reproducible clock
+        shell: pwsh
+        run: |
+          $epoch = git log -1 --format=%ct
+          echo "SOURCE_DATE_EPOCH=$epoch" >> $env:GITHUB_ENV
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Build installers
+        if: github.ref == 'refs/heads/main'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --target ${{ matrix.rust_target }}
+
+      - name: Upload installers
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muck-store-windows-${{ matrix.arch }}
+          path: |
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Build and publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Muck Store ${{ github.ref_name }}
+          releaseBody: |
+            Windows 10 and 11 installers for this tag.
+
+            - **x64 `.exe`** — 64-bit Windows 10/11
+            - **x86 `.exe`** — 32-bit Windows 10 (Windows 11 is 64-bit only)
+
+            After install, the Start Menu opens **muck-updater.exe**. It checks this Release, installs a newer setup when needed, then launches the store.
+          includeUpdaterJson: true
+          args: --target ${{ matrix.rust_target }}
+
+      - name: Attest installers
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*.exe

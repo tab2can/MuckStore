@@ -1,0 +1,79 @@
+use crate::models::{InstalledRegistry, StoreSettings};
+use crate::paths;
+
+pub fn load_store_settings() -> StoreSettings {
+    let path = paths::settings_path();
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => serde_json::from_str(&raw).unwrap_or_default(),
+        Err(_) => StoreSettings::default(),
+    }
+}
+
+pub fn save_store_settings(settings: &StoreSettings) -> anyhow::Result<()> {
+    paths::ensure_dirs(settings.install_path.as_deref())?;
+    let path = paths::settings_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let raw = serde_json::to_string_pretty(settings)?;
+    std::fs::write(path, raw)?;
+    Ok(())
+}
+
+pub fn load_registry() -> InstalledRegistry {
+    match std::fs::read_to_string(paths::registry_path()) {
+        Ok(raw) => serde_json::from_str(&raw).unwrap_or_default(),
+        Err(_) => InstalledRegistry::default(),
+    }
+}
+
+pub fn save_registry(reg: &InstalledRegistry) -> anyhow::Result<()> {
+    let path = paths::registry_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, serde_json::to_string_pretty(reg)?)?;
+    Ok(())
+}
+
+pub fn load_program_settings(id: &str) -> serde_json::Value {
+    let path = paths::program_settings_path(id);
+    match std::fs::read_to_string(path) {
+        Ok(raw) => serde_json::from_str(&raw).unwrap_or(serde_json::json!({})),
+        Err(_) => serde_json::json!({}),
+    }
+}
+
+pub fn save_program_settings(id: &str, value: &serde_json::Value) -> anyhow::Result<()> {
+    std::fs::create_dir_all(paths::config_dir())?;
+    std::fs::write(
+        paths::program_settings_path(id),
+        serde_json::to_string_pretty(value)?,
+    )?;
+    Ok(())
+}
+
+pub fn defaults_from_schema(schema: &serde_json::Value) -> serde_json::Value {
+    let mut out = serde_json::Map::new();
+    if let Some(props) = schema.get("properties").and_then(|p| p.as_object()) {
+        for (key, prop) in props {
+            if let Some(default) = prop.get("default") {
+                out.insert(key.clone(), default.clone());
+            } else if let Some(ty) = prop.get("type").and_then(|t| t.as_str()) {
+                let v = match ty {
+                    "boolean" => serde_json::Value::Bool(false),
+                    "number" | "integer" => serde_json::json!(0),
+                    "array" => serde_json::json!([]),
+                    _ => serde_json::Value::String(String::new()),
+                };
+                out.insert(key.clone(), v);
+            }
+        }
+    }
+    serde_json::Value::Object(out)
+}
+
+pub fn wipe_program_settings(id: &str) {
+    let _ = std::fs::remove_file(paths::program_settings_path(id));
+}
+

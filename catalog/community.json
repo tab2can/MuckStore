@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "programs": [
+    {
+      "id": "com.example.untrusted-demo",
+      "official": false,
+      "featured": false,
+      "localResource": "programs/examples/untrusted-demo"
+    }
+  ]
+}
