@@ -1,4 +1,4 @@
-import { useState, type PointerEvent } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
 export const NAV_ICON_WIDTH = 52;
 export const NAV_SNAP_WIDTH = 128;
@@ -35,7 +35,7 @@ export function useNavWidth(storageKey: string) {
   const collapsed = width <= NAV_ICON_WIDTH;
 
   function onResizePointerDown(
-    e: PointerEvent<HTMLDivElement>,
+    e: ReactPointerEvent<HTMLDivElement>,
     paneSelector: string,
     growToward: "left" | "right" = "right",
   ) {

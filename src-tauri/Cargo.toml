@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "muck-store"
-version = "0.1.1"
+version = "0.1.2"
 description = "Open-source program store and distribution layer"
 authors = ["Muck Store contributors"]
 edition = "2021"
