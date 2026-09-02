@@ -1,7 +1,7 @@
 {
   "name": "muck-store",
   "private": true,
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "Open-source program store and distribution layer",
   "license": "MIT",
   "type": "module",

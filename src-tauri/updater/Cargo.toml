@@ -1,6 +1,6 @@
 [package]
 name = "muck-updater"
-version = "0.1.2"
+version = "1.0.0"
 description = "Standalone Muck Store updater splash"
 edition = "2021"
 license = "MIT"

@@ -56,7 +56,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npx tauri build --target ${{ matrix.rust_target }}
+        run: npx tauri build --target ${{ matrix.rust_target }} --bundles nsis
 
       - name: Upload installers
         if: github.ref == 'refs/heads/main'
@@ -85,7 +85,8 @@ jobs:
 
             After install, the Start Menu opens **muck-updater.exe**. It checks this Release, installs a newer setup when needed, then launches the store.
           includeUpdaterJson: true
-          args: --target ${{ matrix.rust_target }}
+          updaterJsonPreferNsis: true
+          args: --target ${{ matrix.rust_target }} --bundles nsis
 
       - name: Attest installers
         if: startsWith(github.ref, 'refs/tags/v')
