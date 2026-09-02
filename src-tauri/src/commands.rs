@@ -23,9 +23,15 @@ pub fn get_store_settings(state: State<AppState>) -> StoreSettings {
 }
 
 #[tauri::command]
-pub fn save_store_settings(state: State<AppState>, settings: StoreSettings) -> Result<(), String> {
+pub fn save_store_settings(
+    app: AppHandle,
+    state: State<AppState>,
+    settings: StoreSettings,
+) -> Result<(), String> {
     crate::settings::save_store_settings(&settings).map_err(|e| e.to_string())?;
+    let tray_on = settings.tray_enabled;
     *state.settings.lock() = settings;
+    crate::apply_tray(&app, tray_on).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -240,6 +246,16 @@ pub fn list_themes(app: AppHandle) -> Vec<ThemePack> {
 #[tauri::command]
 pub fn import_theme(path: String) -> Result<ThemePack, String> {
     crate::theme::import_theme_file(&PathBuf::from(path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_theme(pack: ThemePack) -> Result<ThemePack, String> {
+    crate::theme::save_theme_pack(pack).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_theme(id: String) -> Result<(), String> {
+    crate::theme::delete_theme_pack(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -260,6 +260,10 @@ pub struct CatalogProgram {
     #[serde(default)]
     pub stars: Option<u64>,
     #[serde(default)]
+    pub forks: Option<u64>,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
     pub updated_at: Option<String>,
     #[serde(default)]
     pub owner_avatar: Option<String>,
@@ -306,6 +310,8 @@ impl CatalogProgram {
             featured: false,
             source_github: manifest.source.github.clone(),
             stars: None,
+            forks: None,
+            language: None,
             updated_at: None,
             owner_avatar: None,
             readme: None,
@@ -345,6 +351,8 @@ pub struct InstalledProgram {
     #[serde(default)]
     pub update_channel: String,
     pub installed_at: String,
+    #[serde(default)]
+    pub updated_at: String,
     pub manifest: MuckManifest,
     #[serde(default)]
     pub inventory: Vec<String>,
@@ -398,13 +406,15 @@ pub struct StoreSettings {
     pub telemetry: bool,
     pub update_channel: String,
     pub custom_css: bool,
+    #[serde(default)]
+    pub prefs_revision: u32,
 }
 
 impl Default for StoreSettings {
     fn default() -> Self {
         Self {
-            language: "en".into(),
-            theme_id: "midnight".into(),
+            language: "system".into(),
+            theme_id: "system".into(),
             density: "comfortable".into(),
             sidebar_position: "left".into(),
             mica: false,
@@ -432,6 +442,7 @@ impl Default for StoreSettings {
             telemetry: false,
             update_channel: "stable".into(),
             custom_css: false,
+            prefs_revision: 1,
         }
     }
 }

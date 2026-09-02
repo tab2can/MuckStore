@@ -1,8 +1,11 @@
+import { Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { BUILTIN_THEMES } from "../lib/themes";
+import { previewTokens, BUILTIN_THEMES } from "../lib/themes";
 import { api, isTauri } from "../lib/api";
 import { useApp } from "../stores/useApp";
+import { ThemeChromePreview } from "../components/ThemeChromePreview";
+import type { ThemePack } from "../lib/types";
 
 export function Themes() {
   const { t } = useTranslation();
@@ -10,6 +13,7 @@ export function Themes() {
   const themes = useApp((s) => s.themes);
   const patch = useApp((s) => s.patchSettings);
   const hydrate = useApp((s) => s.hydrate);
+  const openStudio = useApp((s) => s.openStudio);
 
   async function importJson() {
     if (!isTauri) return;
@@ -23,32 +27,39 @@ export function Themes() {
     }
   }
 
+  function pick(id: string) {
+    if (settings?.themeId === id) return;
+    void patch({ themeId: id });
+  }
+
   return (
     <div>
-      <p className="page-kicker">{t("nav.themes")}</p>
-      <h1 className="page-title">{t("themes.title")}</h1>
-      <p className="page-sub">{t("themes.subtitle")}</p>
+      <div className="library-head">
+        <h1 className="page-title">{t("themes.title")}</h1>
+        <button className="btn primary" type="button" onClick={() => openStudio()}>
+          {t("themes.create")}
+        </button>
+      </div>
       <section className="section">
         <h2>{t("themes.builtin")}</h2>
-        <div className="grid">
+        <div className="theme-grid">
+          <ThemeCard
+            name={t("themes.system")}
+            hint={t("themes.followWindows")}
+            title={t("themes.systemHint")}
+            active={settings?.themeId === "system"}
+            tokens={previewTokens("system")}
+            onPick={() => pick("system")}
+          />
           {BUILTIN_THEMES.map((theme) => (
-            <article key={theme.id} className="card">
-              <div className="theme-swatch" aria-hidden>
-                <span style={{ background: theme.tokens.bg }} />
-                <span style={{ background: theme.tokens.surface }} />
-                <span style={{ background: theme.tokens.accent }} />
-                <span style={{ background: theme.tokens.text }} />
-              </div>
-              <h3>{theme.name}</h3>
-              <p>{theme.id}</p>
-              <button
-                className={`btn ${settings?.themeId === theme.id ? "primary" : ""}`}
-                type="button"
-                onClick={() => void patch({ themeId: theme.id })}
-              >
-                {settings?.themeId === theme.id ? t("themes.active") : t("themes.apply")}
-              </button>
-            </article>
+            <ThemeCard
+              key={theme.id}
+              name={theme.name}
+              hint={t("themes.builtinHint")}
+              active={settings?.themeId === theme.id}
+              tokens={previewTokens(theme.id)}
+              onPick={() => pick(theme.id)}
+            />
           ))}
         </div>
       </section>
@@ -62,19 +73,66 @@ export function Themes() {
         {themes.length === 0 ? (
           <div className="empty">{t("themes.emptyImported")}</div>
         ) : (
-          <div className="grid">
+          <div className="theme-grid">
             {themes.map((theme) => (
-              <article key={theme.id} className="card">
-                <h3>{theme.name}</h3>
-                <p>{theme.author ?? theme.id}</p>
-                <button className="btn" type="button" onClick={() => void patch({ themeId: theme.id })}>
-                  {t("themes.apply")}
-                </button>
-              </article>
+              <ThemeCard
+                key={theme.id}
+                name={theme.name}
+                hint={theme.author && theme.author !== "custom" ? theme.author : t("themes.yours")}
+                active={settings?.themeId === theme.id}
+                tokens={previewTokens(theme.id, theme.tokens)}
+                pack={theme}
+                onPick={() => pick(theme.id)}
+                onEdit={() => openStudio(theme)}
+              />
             ))}
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function ThemeCard({
+  name,
+  hint,
+  title,
+  tokens,
+  active,
+  pack,
+  onPick,
+  onEdit,
+}: {
+  name: string;
+  hint: string;
+  title?: string;
+  tokens: Record<string, string>;
+  active?: boolean;
+  pack?: ThemePack;
+  onPick: () => void;
+  onEdit?: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="theme-card-wrap">
+      <button
+        type="button"
+        className={`theme-card${active ? " on" : ""}`}
+        onClick={onPick}
+        aria-pressed={active}
+        title={title ?? name}
+      >
+        <ThemeChromePreview tokens={tokens} />
+        <span className="theme-card-meta">
+          <strong>{name}</strong>
+          <small>{hint}</small>
+        </span>
+      </button>
+      {pack && onEdit && (
+        <button type="button" className="btn sm ghost theme-edit" aria-label={t("themes.edit")} onClick={onEdit}>
+          <Pencil size={14} />
+        </button>
+      )}
     </div>
   );
 }

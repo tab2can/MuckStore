@@ -20,6 +20,12 @@ struct IndexEntry {
     featured: bool,
     #[serde(default)]
     local_resource: Option<String>,
+    #[serde(default)]
+    stars: Option<u64>,
+    #[serde(default)]
+    forks: Option<u64>,
+    #[serde(default)]
+    language: Option<String>,
 }
 
 pub fn load_index(app: &AppHandle, file: &str, official: bool) -> Vec<CatalogProgram> {
@@ -48,6 +54,9 @@ pub fn load_index(app: &AppHandle, file: &str, official: bool) -> Vec<CatalogPro
         let mut program = CatalogProgram::from_manifest(manifest, official || entry.official, Some(rel));
         program.featured = entry.featured;
         program.id = entry.id;
+        program.stars = entry.stars.or(program.stars);
+        program.forks = entry.forks.or(program.forks);
+        program.language = entry.language.or(program.language);
         if let Ok(readme) = std::fs::read_to_string(dir.join("README.md")) {
             program.readme = Some(readme);
         }
@@ -80,6 +89,10 @@ struct GithubRepo {
     full_name: String,
     description: Option<String>,
     stargazers_count: u64,
+    #[serde(default)]
+    forks_count: u64,
+    #[serde(default)]
+    language: Option<String>,
     updated_at: Option<String>,
     default_branch: Option<String>,
     html_url: String,
@@ -232,6 +245,10 @@ pub async fn fetch_github_program(
     }
     let mut program = CatalogProgram::from_manifest(manifest, false, None);
     program.stars = Some(repo_info.stargazers_count);
+    program.forks = Some(repo_info.forks_count);
+    if program.language.is_none() {
+        program.language = repo_info.language.clone();
+    }
     program.updated_at = repo_info.updated_at;
     program.owner_avatar = Some(repo_info.owner.avatar_url);
     program.archived = repo_info.archived;
@@ -371,6 +388,8 @@ pub async fn search_github_topic(
                     featured: false,
                     source_github: repo.full_name,
                     stars: Some(repo.stargazers_count),
+                    forks: Some(repo.forks_count),
+                    language: repo.language.clone(),
                     updated_at: repo.updated_at,
                     owner_avatar: Some(repo.owner.avatar_url),
                     readme: None,

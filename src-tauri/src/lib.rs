@@ -73,6 +73,8 @@ pub fn run() {
             commands::apply_program_update,
             commands::list_themes,
             commands::import_theme,
+            commands::save_theme,
+            commands::delete_theme,
             commands::sideload_program,
             commands::open_path,
             commands::clear_cache,
@@ -84,54 +86,11 @@ pub fn run() {
             commands::launch_store_updater,
         ])
         .setup(move |app| {
-            if tray_enabled {
-                let show = MenuItem::with_id(app, "show", "Show Muck Store", true, None::<&str>)?;
-                let updates =
-                    MenuItem::with_id(app, "updates", "Check for updates", true, None::<&str>)?;
-                let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show, &updates, &quit])?;
-                let _tray = TrayIconBuilder::new()
-                    .icon(app.default_window_icon().cloned().unwrap())
-                    .menu(&menu)
-                    .show_menu_on_left_click(false)
-                    .on_menu_event(|app, event| match event.id.as_ref() {
-                        "show" => {
-                            if let Some(win) = app.get_webview_window("main") {
-                                let _ = win.show();
-                                let _ = win.set_focus();
-                            }
-                        }
-                        "updates" => {
-                            let _ = app.emit("tray-check-updates", ());
-                            if let Some(win) = app.get_webview_window("main") {
-                                let _ = win.show();
-                            }
-                        }
-                        "quit" => {
-                            app.exit(0);
-                        }
-                        _ => {}
-                    })
-                    .on_tray_icon_event(|tray, event| {
-                        if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
-                            if button == tauri::tray::MouseButton::Left {
-                                let app = tray.app_handle();
-                                if let Some(win) = app.get_webview_window("main") {
-                                    if win.is_visible().unwrap_or(false) {
-                                        let _ = win.hide();
-                                    } else {
-                                        let _ = win.show();
-                                        let _ = win.set_focus();
-                                    }
-                                }
-                            }
-                        }
-                    })
-                    .build(app)?;
-            }
+            apply_tray(app.handle(), tray_enabled)?;
 
-            if start_minimized {
-                if let Some(win) = app.get_webview_window("main") {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.set_background_color(Some(tauri::window::Color(0, 0, 0, 0)));
+                if start_minimized && tray_enabled {
                     let _ = win.hide();
                 }
             }
@@ -187,8 +146,71 @@ pub fn run() {
             autostart_enabled_programs(app);
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let hide = window.state::<AppState>().settings.lock().tray_enabled;
+                if hide {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running Muck Store");
+}
+
+pub(crate) fn apply_tray(app: &tauri::AppHandle, enabled: bool) -> tauri::Result<()> {
+    if !enabled {
+        let _ = app.remove_tray_by_id("main");
+        return Ok(());
+    }
+    if app.tray_by_id("main").is_some() {
+        return Ok(());
+    }
+
+    let show = MenuItem::with_id(app, "show", "Show Muck Store", true, None::<&str>)?;
+    let updates = MenuItem::with_id(app, "updates", "Check for updates", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &updates, &quit])?;
+    TrayIconBuilder::with_id("main")
+        .icon(app.default_window_icon().cloned().unwrap())
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+            }
+            "updates" => {
+                let _ = app.emit("tray-check-updates", ());
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.show();
+                }
+            }
+            "quit" => {
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
+                if button == tauri::tray::MouseButton::Left {
+                    let app = tray.app_handle();
+                    if let Some(win) = app.get_webview_window("main") {
+                        if win.is_visible().unwrap_or(false) {
+                            let _ = win.hide();
+                        } else {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                        }
+                    }
+                }
+            }
+        })
+        .build(app)?;
+    Ok(())
 }
 
 fn autostart_enabled_programs(app: &tauri::App) {

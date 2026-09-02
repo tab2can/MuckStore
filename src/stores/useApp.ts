@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { api } from "../lib/api";
-import { applyChrome, applyTheme } from "../lib/themes";
+import { applyChrome, applyTheme, readAppliedTokens } from "../lib/themes";
+import { normalizeStudioTokens } from "../lib/themeStudio";
 import { setupI18n } from "../i18n";
+import { watchSystemAppearance } from "../lib/systemAppearance";
 import type {
   AppPaths,
   CatalogProgram,
@@ -10,6 +12,12 @@ import type {
   ThemePack,
   UpdateInfo,
 } from "../lib/types";
+
+export type OverlayId = "themes" | "settings";
+
+export type StudioSession =
+  | { mode: "new"; tokens: Record<string, string> }
+  | { mode: "edit"; pack: ThemePack; tokens: Record<string, string> };
 
 interface AppState {
   ready: boolean;
@@ -22,17 +30,37 @@ interface AppState {
   updates: UpdateInfo[];
   themes: ThemePack[];
   paths: AppPaths | null;
+  overlay: OverlayId | null;
+  studio: StudioSession | null;
+  notice: string | null;
+  setOverlay: (overlay: OverlayId | null) => void;
+  openStudio: (pack?: ThemePack) => void;
+  closeStudio: () => void;
+  showNotice: (message: string) => void;
   hydrate: () => Promise<void>;
   refreshInstalled: () => Promise<void>;
   remember: (program: CatalogProgram) => void;
   patchSettings: (partial: Partial<StoreSettings>) => Promise<void>;
 }
 
-function applyVisuals(s: StoreSettings, custom?: Record<string, string>) {
+async function applyVisuals(s: StoreSettings, custom?: Record<string, string>) {
   applyTheme(s.themeId, custom, s.accent);
-  applyChrome(s.density, s.fontScale, s.reducedMotion, s.mica);
+  applyChrome(s.density, s.fontScale, s.reducedMotion, s.mica, s.animations);
   document.documentElement.setAttribute("data-sidebar", s.sidebarPosition);
-  setupI18n(s.language);
+  await setupI18n(s.language);
+}
+
+let stopSystemWatch: (() => void) | null = null;
+let noticeTimer: number | undefined;
+
+function followSystemIfNeeded(getSettings: () => StoreSettings | null, getCustom: (id: string) => Record<string, string> | undefined) {
+  stopSystemWatch?.();
+  stopSystemWatch = watchSystemAppearance(() => {
+    const s = getSettings();
+    if (!s) return;
+    if (s.language !== "system" && s.themeId !== "system") return;
+    void applyVisuals(s, getCustom(s.themeId));
+  });
 }
 
 export const useApp = create<AppState>((set, get) => ({
@@ -46,10 +74,30 @@ export const useApp = create<AppState>((set, get) => ({
   updates: [],
   themes: [],
   paths: null,
+  overlay: null,
+  studio: null,
+  notice: null,
+  setOverlay: (overlay) => set({ overlay, studio: overlay ? null : get().studio }),
+  openStudio: (pack) => {
+    const tokens = normalizeStudioTokens(pack?.tokens ?? readAppliedTokens());
+    set(
+      pack
+        ? { overlay: null, studio: { mode: "edit", pack, tokens } }
+        : { overlay: null, studio: { mode: "new", tokens } },
+    );
+  },
+  closeStudio: () => set({ studio: null }),
+  showNotice: (message) => {
+    if (noticeTimer) window.clearTimeout(noticeTimer);
+    set({ notice: message });
+    noticeTimer = window.setTimeout(() => {
+      set({ notice: null });
+      noticeTimer = undefined;
+    }, 1600);
+  },
   hydrate: async () => {
     try {
       const settings = await api.settings();
-      applyVisuals(settings);
       const [official, community, installed, themes, paths] = await Promise.all([
         api.official(),
         api.community(),
@@ -57,7 +105,40 @@ export const useApp = create<AppState>((set, get) => ({
         api.themes(),
         api.paths(),
       ]);
+      await applyVisuals(
+        settings,
+        themes.find((t) => t.id === settings.themeId)?.tokens,
+      );
       set({ settings, official, community, installed, themes, paths, ready: true, error: null });
+      followSystemIfNeeded(
+        () => get().settings,
+        (id) => get().themes.find((t) => t.id === id)?.tokens,
+      );
+      void api
+        .searchGithub("")
+        .then((found) => {
+          set((s) => {
+            const map = new Map(s.discovered.map((p) => [p.id, p]));
+            for (const program of found) {
+              const prev = map.get(program.id);
+              map.set(
+                program.id,
+                prev
+                  ? {
+                      ...program,
+                      ...prev,
+                      stars: prev.stars ?? program.stars,
+                      forks: prev.forks ?? program.forks,
+                      language: prev.language ?? program.language,
+                      updatedAt: prev.updatedAt ?? program.updatedAt,
+                    }
+                  : program,
+              );
+            }
+            return { discovered: [...map.values()] };
+          });
+        })
+        .catch(() => undefined);
       void api
         .updates()
         .then(async (updates) => {
@@ -95,7 +176,11 @@ export const useApp = create<AppState>((set, get) => ({
     const next = { ...current, ...partial };
     await api.saveSettings(next);
     const custom = get().themes.find((t) => t.id === next.themeId)?.tokens;
-    applyVisuals(next, custom);
+    await applyVisuals(next, custom);
     set({ settings: next });
+    followSystemIfNeeded(
+      () => get().settings,
+      (id) => get().themes.find((t) => t.id === id)?.tokens,
+    );
   },
 }));

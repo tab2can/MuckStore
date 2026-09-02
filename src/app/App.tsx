@@ -1,16 +1,23 @@
-import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Shell } from "./Shell";
-import { useApp } from "../stores/useApp";
+import { useApp, type OverlayId } from "../stores/useApp";
 import { Home } from "../routes/Home";
 import { Discover } from "../routes/Discover";
 import { Library } from "../routes/Library";
-import { Installed } from "../routes/Installed";
 import { ProgramDetail } from "../routes/ProgramDetail";
 import { Updates } from "../routes/Updates";
-import { Themes } from "../routes/Themes";
-import { SettingsPage } from "../routes/Settings";
+
+function OverlayRoute({ id }: { id: OverlayId }) {
+  const setOverlay = useApp((s) => s.setOverlay);
+  const navigate = useNavigate();
+  useEffect(() => {
+    setOverlay(id);
+    navigate("/", { replace: true });
+  }, [id, navigate, setOverlay]);
+  return null;
+}
 
 export default function App() {
   const { t } = useTranslation();
@@ -45,11 +52,11 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/discover" element={<Discover />} />
           <Route path="/library" element={<Library />} />
-          <Route path="/installed" element={<Installed />} />
+          <Route path="/installed" element={<Navigate to="/library" replace />} />
           <Route path="/program/:id" element={<ProgramDetail />} />
           <Route path="/updates" element={<Updates />} />
-          <Route path="/themes" element={<Themes />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/themes" element={<OverlayRoute id="themes" />} />
+          <Route path="/settings" element={<OverlayRoute id="settings" />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Shell>

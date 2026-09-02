@@ -1,7 +1,7 @@
 use crate::archive;
 use crate::helper::{self, HelperJob};
 use crate::models::{
-    CatalogProgram, InstallRequest, InstalledProgram, MuckManifest, ProgressEvent,
+    CatalogProgram, InstallRequest, InstalledProgram, InstalledRegistry, MuckManifest, ProgressEvent,
 };
 use crate::paths;
 use crate::security;
@@ -131,6 +131,8 @@ pub async fn install(
         }
     }
 
+    let mut registry = settings::load_registry();
+    let (installed_at, updated_at) = install_times(&registry, &manifest.id);
     let installed = InstalledProgram {
         id: manifest.id.clone(),
         version: manifest.version.clone(),
@@ -141,12 +143,12 @@ pub async fn install(
         autostart: false,
         pinned_version: None,
         update_channel: "stable".into(),
-        installed_at: Utc::now().to_rfc3339(),
+        installed_at,
+        updated_at,
         manifest,
         inventory,
         previous_path,
     };
-    let mut registry = settings::load_registry();
     registry
         .programs
         .insert(installed.id.clone(), installed.clone());
@@ -475,6 +477,8 @@ pub fn sideload(app: &AppHandle, folder: &Path, developer_mode: bool) -> anyhow:
             settings::save_program_settings(&manifest.id, &settings::defaults_from_schema(schema))?;
         }
     }
+    let mut registry = settings::load_registry();
+    let (installed_at, updated_at) = install_times(&registry, &manifest.id);
     let installed = InstalledProgram {
         id: manifest.id.clone(),
         version: manifest.version.clone(),
@@ -485,16 +489,28 @@ pub fn sideload(app: &AppHandle, folder: &Path, developer_mode: bool) -> anyhow:
         autostart: false,
         pinned_version: None,
         update_channel: "stable".into(),
-        installed_at: Utc::now().to_rfc3339(),
+        installed_at,
+        updated_at,
         manifest,
         inventory,
         previous_path: None,
     };
-    let mut registry = settings::load_registry();
     registry
         .programs
         .insert(installed.id.clone(), installed.clone());
     settings::save_registry(&registry)?;
     let _ = app;
     Ok(installed)
+}
+
+fn install_times(registry: &InstalledRegistry, id: &str) -> (String, String) {
+    let now = Utc::now().to_rfc3339();
+    let installed_at = registry
+        .programs
+        .get(id)
+        .map(|p| p.installed_at.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| now.clone());
+    (installed_at, now)
 }

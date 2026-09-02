@@ -96,10 +96,6 @@ Var MuckLicenseEdit
 Var MuckDirEdit
 Var MuckDirSpaceNeed
 Var MuckDirSpaceFree
-Var MuckLangDlg
-Var MuckLangEn
-Var MuckLangTr
-Var MuckLangChoice
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -297,7 +293,7 @@ Function PageReinstall
 
  ${NSD_CreateLabel} 0 0 100% 24u $R1
  Pop $R1
- SetCtlColors $R1 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $R1
 
  StrCpy $5 $R2
  StrCpy $6 $R3
@@ -306,7 +302,7 @@ Function PageReinstall
  ${NSD_OnClick} $R2 PageReinstallUpdateSelection
  ${NSD_CreateLabel} 18u 50u -18u 12u $5
  Pop $5
- SetCtlColors $5 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $5
  ${NSD_OnClick} $5 PageReinstallPickFirst
 
  ${NSD_CreateRadioButton} 0 68u 14u 14u " "
@@ -314,7 +310,7 @@ Function PageReinstall
  ${NSD_OnClick} $R3 PageReinstallUpdateSelection
  ${NSD_CreateLabel} 18u 70u -18u 12u $6
  Pop $6
- SetCtlColors $6 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $6
  ${NSD_OnClick} $6 PageReinstallPickSecond
  ; Disable this radio button if downgrading and downgrades are disabled
  !if "${ALLOWDOWNGRADES}" == "false"
@@ -334,7 +330,7 @@ Function PageReinstall
  ${EndIf}
 
  ${NSD_SetFocus} $R2
- SetCtlColors $R4 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $R4
  Call MuckOnPageShow
  nsDialogs::Show
  ${EndIf}
@@ -506,7 +502,7 @@ Function un.ConfirmShow ; Add add a `Delete app data` check box
  Pop $DeleteAppDataCheckbox
  SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $1
  SendMessage $DeleteAppDataCheckbox ${WM_SETFONT} $1 1
- SetCtlColors $DeleteAppDataCheckbox ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $DeleteAppDataCheckbox
  Call un.MuckOnPageShow
 FunctionEnd
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.ConfirmLeave
@@ -576,16 +572,16 @@ Function MuckLicensePage
   Abort
  ${EndIf}
  ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
- SetCtlColors $0 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $0
 
  ${NSD_CreateLabel} 0 0 100% 20u "$(MUCK_LICENSE_BODY)"
  Pop $1
- SetCtlColors $1 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $1
 
  nsDialogs::CreateControl EDIT ${WS_VISIBLE}|${WS_CHILD}|${WS_TABSTOP}|${WS_VSCROLL}|${ES_MULTILINE}|${ES_READONLY}|${ES_WANTRETURN}|${ES_AUTOVSCROLL} 0 0u 22u 100% 98u ""
  Pop $MuckLicenseEdit
- SetCtlColors $MuckLicenseEdit ECE8E1 161C26
- System::Call 'uxtheme::SetWindowTheme(i $MuckLicenseEdit, w "DarkMode_Explorer", n)'
+ !insertmacro MuckSetCtlEdit $MuckLicenseEdit
+ System::Call 'uxtheme::SetWindowTheme(i $MuckLicenseEdit, w "$MuckUxTheme", n)'
  SendMessage $MuckLicenseEdit 0x031A 0 0
  SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $2
  SendMessage $MuckLicenseEdit ${WM_SETFONT} $2 1
@@ -632,11 +628,11 @@ Function MuckUsersPage
   Abort
  ${EndIf}
  ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
- SetCtlColors $0 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $0
 
  ${NSD_CreateLabel} 0 0 100% 28u "$(MUCK_USERS_BODY)"
  Pop $1
- SetCtlColors $1 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $1
 
  ${NSD_CreateButton} 0 40u 100% 16u "$(MUCK_USERS_ALL)"
  Pop $MuckUsersAll
@@ -774,15 +770,15 @@ Function MuckDirectoryPage
   Abort
  ${EndIf}
  ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
- SetCtlColors $0 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $0
 
  ${NSD_CreateLabel} 0 0 100% 24u "$(MUCK_DIR_BODY)"
  Pop $1
- SetCtlColors $1 ECE8E1 0B0D11
+ !insertmacro MuckSetCtlColors $1
 
  ${NSD_CreateText} 0 32u -60u 14u "$INSTDIR"
  Pop $MuckDirEdit
- SetCtlColors $MuckDirEdit ECE8E1 161C26
+ !insertmacro MuckSetCtlEdit $MuckDirEdit
  SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $1
  SendMessage $MuckDirEdit ${WM_SETFONT} $1 1
  ${NSD_OnChange} $MuckDirEdit MuckDirRefreshSpace
@@ -793,10 +789,10 @@ Function MuckDirectoryPage
 
  ${NSD_CreateLabel} 0 58u 100% 12u ""
  Pop $MuckDirSpaceNeed
- SetCtlColors $MuckDirSpaceNeed 9AA4B7 0B0D11
+ !insertmacro MuckSetCtlMuted $MuckDirSpaceNeed
  ${NSD_CreateLabel} 0 72u 100% 12u ""
  Pop $MuckDirSpaceFree
- SetCtlColors $MuckDirSpaceFree 9AA4B7 0B0D11
+ !insertmacro MuckSetCtlMuted $MuckDirSpaceFree
  Call MuckDirRefreshSpace
 
  Call MuckOnPageShow
@@ -810,95 +806,25 @@ Function MuckDirLeave
  ${EndIf}
 FunctionEnd
 
+!macro MuckLanguageAutoImpl
+  Push $0
+  System::Call 'kernel32::GetUserDefaultUILanguage() i .r0'
+  IntOp $0 $0 & 0x3FF
+  ${If} $0 == 31
+    StrCpy $LANGUAGE ${LANG_TURKISH}
+  ${Else}
+    StrCpy $LANGUAGE ${LANG_ENGLISH}
+  ${EndIf}
+  WriteRegStr HKCU "${MANUPRODUCTKEY}" "Installer Language" $LANGUAGE
+  Pop $0
+!macroend
+
 Function MuckLanguageAuto
- System::Call 'kernel32::GetUserDefaultUILanguage() i .r0'
- IntOp $0 $0 & 0xFFFF
- ${If} $0 == 1055
-  StrCpy $MuckLangChoice ${LANG_TURKISH}
- ${Else}
-  StrCpy $MuckLangChoice ${LANG_ENGLISH}
- ${EndIf}
- ReadRegStr $0 HKCU "${MANUPRODUCTKEY}" "Installer Language"
- ${If} $0 == ${LANG_TURKISH}
-  StrCpy $MuckLangChoice ${LANG_TURKISH}
- ${ElseIf} $0 == ${LANG_ENGLISH}
-  StrCpy $MuckLangChoice ${LANG_ENGLISH}
- ${EndIf}
- StrCpy $LANGUAGE $MuckLangChoice
+  !insertmacro MuckLanguageAutoImpl
 FunctionEnd
 
-Function MuckLangSkin
- StrCpy $0 $MuckLangEn
- Call MuckPaintButton
- StrCpy $0 $MuckLangTr
- Call MuckPaintButton
- GetDlgItem $0 $MuckLangDlg 1
- Call MuckPaintButton
- GetDlgItem $0 $MuckLangDlg 2
- Call MuckPaintButton
-FunctionEnd
-
-Function MuckLangClickEn
- StrCpy $MuckLangChoice ${LANG_ENGLISH}
- StrCpy $MuckPaintPrimaryHwnd $MuckLangEn
- Call MuckLangSkin
-FunctionEnd
-
-Function MuckLangClickTr
- StrCpy $MuckLangChoice ${LANG_TURKISH}
- StrCpy $MuckPaintPrimaryHwnd $MuckLangTr
- Call MuckLangSkin
-FunctionEnd
-
-Function MuckLanguageDialog
- Call MuckLanguageAuto
- ${If} ${Silent}
- ${OrIf} $PassiveMode = 1
-  Return
- ${EndIf}
-
- !insertmacro MuckInitDarkMode
- nsDialogs::Create 1044
- Pop $MuckLangDlg
- ${If} $MuckLangDlg == error
-  Return
- ${EndIf}
- System::Call 'user32::SetWindowText(i $MuckLangDlg, t "Muck Store")'
- System::Call 'user32::GetSystemMetrics(i 0) i .r1'
- System::Call 'user32::GetSystemMetrics(i 1) i .r2'
- IntOp $1 $1 - 400
- IntOp $1 $1 / 2
- IntOp $2 $2 - 260
- IntOp $2 $2 / 2
- System::Call 'user32::SetWindowPos(i $MuckLangDlg, i 0, i r1, i r2, i 400, i 260, i 0x4)'
- SetCtlColors $MuckLangDlg ECE8E1 0B0D11
- System::Call 'dwmapi::DwmSetWindowAttribute(i $MuckLangDlg, i 20, *i 1, i 4)'
- ${If} $MuckBgBrush != 0
-  System::Call 'user32::SetClassLong(i $MuckLangDlg, i -10, i $MuckBgBrush)'
- ${EndIf}
-
- ${NSD_CreateLabel} 12u 8u -24u 14u "Select a language / Dil seçin"
- Pop $0
- SetCtlColors $0 ECE8E1 0B0D11
-
- ${NSD_CreateButton} 12u 28u -24u 16u "English"
- Pop $MuckLangEn
- ${NSD_CreateButton} 12u 48u -24u 16u "Türkçe"
- Pop $MuckLangTr
- ${NSD_OnClick} $MuckLangEn MuckLangClickEn
- ${NSD_OnClick} $MuckLangTr MuckLangClickTr
-
- ${If} $MuckLangChoice == ${LANG_TURKISH}
-  StrCpy $MuckPaintPrimaryHwnd $MuckLangTr
- ${Else}
-  StrCpy $MuckPaintPrimaryHwnd $MuckLangEn
- ${EndIf}
- Call MuckLangSkin
-
- nsDialogs::Show
- StrCpy $LANGUAGE $MuckLangChoice
- WriteRegStr HKCU "${MANUPRODUCTKEY}" "Installer Language" $LANGUAGE
- StrCpy $MuckPaintPrimaryHwnd 0
+Function un.MuckLanguageAuto
+  !insertmacro MuckLanguageAutoImpl
 FunctionEnd
 
 Function .onInit
@@ -917,9 +843,8 @@ Function .onInit
  StrCpy $UpdateMode 1
  ${EndIf}
 
- !if "${DISPLAYLANGUAGESELECTOR}" == "true"
- Call MuckLanguageDialog
- !endif
+ Call MuckInitPalette
+ Call MuckLanguageAuto
 
  !insertmacro SetContext
 
@@ -1185,7 +1110,8 @@ Function un.onInit
  !insertmacro MULTIUSER_UNINIT
  !endif
 
- !insertmacro MUI_UNGETLANGUAGE
+ Call un.MuckInitPalette
+ Call un.MuckLanguageAuto
 
  ${GetOptions} $CMDLINE "/P" $PassiveMode
  ${IfNot} ${Errors}

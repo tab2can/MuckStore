@@ -3,10 +3,21 @@ use crate::paths;
 
 pub fn load_store_settings() -> StoreSettings {
     let path = paths::settings_path();
-    match std::fs::read_to_string(&path) {
+    let mut settings: StoreSettings = match std::fs::read_to_string(&path) {
         Ok(raw) => serde_json::from_str(&raw).unwrap_or_default(),
-        Err(_) => StoreSettings::default(),
+        Err(_) => return StoreSettings::default(),
+    };
+    if settings.prefs_revision < 1 {
+        if settings.language == "en" {
+            settings.language = "system".into();
+        }
+        if settings.theme_id == "midnight" {
+            settings.theme_id = "system".into();
+        }
+        settings.prefs_revision = 1;
+        let _ = save_store_settings(&settings);
     }
+    settings
 }
 
 pub fn save_store_settings(settings: &StoreSettings) -> anyhow::Result<()> {

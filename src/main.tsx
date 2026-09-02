@@ -4,7 +4,7 @@ import App from "./app/App";
 import { setupI18n } from "./i18n";
 import "./styles/global.css";
 
-setupI18n("en");
+setupI18n("system");
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

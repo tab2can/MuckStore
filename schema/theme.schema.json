@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://muckstore.dev/schema/theme.schema.json",
   "title": "Muck Store theme pack",
-  "description": "Token-only theme. Arbitrary JavaScript and remote CSS imports are rejected.",
+  "description": "Token-only theme. Arbitrary JavaScript and remote CSS imports are rejected. Surface slots are independent; missing slots inherit from the palette at apply time.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "name", "tokens"],
@@ -27,6 +27,7 @@
         "surface": { "$ref": "#/$defs/color" },
         "surfaceHover": { "$ref": "#/$defs/color" },
         "border": { "$ref": "#/$defs/color" },
+        "borderStrong": { "$ref": "#/$defs/color" },
         "text": { "$ref": "#/$defs/color" },
         "textMuted": { "$ref": "#/$defs/color" },
         "accent": { "$ref": "#/$defs/color" },
@@ -37,7 +38,37 @@
         "radius": { "type": "string" },
         "radiusSm": { "type": "string" },
         "font": { "type": "string" },
-        "blur": { "type": "string" }
+        "blur": { "type": "string" },
+        "bgFill": { "$ref": "#/$defs/fill" },
+        "elevatedFill": { "$ref": "#/$defs/fill" },
+        "surfaceFill": { "$ref": "#/$defs/fill" },
+        "accentFill": { "$ref": "#/$defs/fill" },
+        "titlebarBg": { "$ref": "#/$defs/color" },
+        "titlebarFill": { "$ref": "#/$defs/fill" },
+        "titlebarBorder": { "$ref": "#/$defs/color" },
+        "titlebarText": { "$ref": "#/$defs/color" },
+        "brand": { "$ref": "#/$defs/color" },
+        "sidebarBg": { "$ref": "#/$defs/color" },
+        "sidebarFill": { "$ref": "#/$defs/fill" },
+        "sidebarBorder": { "$ref": "#/$defs/color" },
+        "navText": { "$ref": "#/$defs/color" },
+        "navHoverBg": { "$ref": "#/$defs/color" },
+        "navHoverText": { "$ref": "#/$defs/color" },
+        "navActiveBg": { "$ref": "#/$defs/color" },
+        "navActiveText": { "$ref": "#/$defs/color" },
+        "navActiveBar": { "$ref": "#/$defs/color" },
+        "cardBorder": { "$ref": "#/$defs/color" },
+        "rowBg": { "$ref": "#/$defs/color" },
+        "rowFill": { "$ref": "#/$defs/fill" },
+        "rowBorder": { "$ref": "#/$defs/color" },
+        "kicker": { "$ref": "#/$defs/color" },
+        "link": { "$ref": "#/$defs/color" },
+        "buttonBg": { "$ref": "#/$defs/color" },
+        "buttonText": { "$ref": "#/$defs/color" },
+        "buttonBorder": { "$ref": "#/$defs/color" },
+        "buttonHover": { "$ref": "#/$defs/color" },
+        "inputBg": { "$ref": "#/$defs/color" },
+        "inputBorder": { "$ref": "#/$defs/color" }
       }
     }
   },
@@ -45,6 +76,10 @@
     "color": {
       "type": "string",
       "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "fill": {
+      "type": "string",
+      "description": "none, or a linear-gradient/radial-gradient using only hex colors. Remote url() is rejected."
     }
   }
 }

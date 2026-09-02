@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { GitFork, Star } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { api, isTauri } from "../lib/api";
 import { useApp } from "../stores/useApp";
 import { PermissionChips } from "../components/PermissionChips";
 import { TrustDialog } from "../components/TrustDialog";
 import { MarkdownView } from "../components/MarkdownView";
-import { SettingsForm } from "../components/SettingsForm";
-import { Switch } from "../components/ui/Switch";
-import type { CatalogProgram, SettingsSchema, VerifyReport } from "../lib/types";
+import { ShotCarousel } from "../components/ShotCarousel";
+import {
+  formatCount,
+  formatUpdated,
+  githubUrl,
+  programGallery,
+  programLanguage,
+} from "../lib/catalogBrowse";
+import type { CatalogProgram, VerifyReport } from "../lib/types";
 
 export function ProgramDetail() {
   const { id = "" } = useParams();
@@ -25,8 +32,6 @@ export function ProgramDetail() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
-  const [logs, setLogs] = useState("");
-  const [values, setValues] = useState<Record<string, unknown>>({});
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
 
@@ -41,9 +46,10 @@ export function ProgramDetail() {
   }, [official, community, discovered, id, remote]);
 
   const inst = installed.find((p) => p.id === id);
-  const schema = (inst?.manifest.settings?.schema ?? program?.manifest?.settings?.schema) as
-    | SettingsSchema
-    | undefined;
+  const gallery = useMemo(() => (program ? programGallery(program) : []), [program]);
+  const cover = gallery[0];
+  const language = program ? programLanguage(program) : undefined;
+  const updated = program ? formatUpdated(program.updatedAt, i18n.language) : undefined;
 
   useEffect(() => {
     if (!program) {
@@ -53,8 +59,6 @@ export function ProgramDetail() {
 
   useEffect(() => {
     if (!inst) return;
-    void api.programSettings(inst.id).then(setValues);
-    void api.logs(inst.id).then(setLogs);
     void api.status(inst.id).then((s) => setRunning(s.running));
   }, [inst]);
 
@@ -130,110 +134,162 @@ export function ProgramDetail() {
   }
 
   const loc = program.manifest?.i18n?.[i18n.language];
+  const name = loc?.name ?? program.name;
+  const summary = loc?.summary ?? program.summary;
+  const repo = githubUrl(program);
 
   return (
-    <div>
-      <p className="page-kicker">{program.sourceGithub}</p>
-      <h1 className="page-title">{loc?.name ?? program.name}</h1>
-      <p className="page-sub">{loc?.summary ?? program.summary}</p>
-      <div className="row" style={{ marginBottom: 18 }}>
-        <span className={`pill ${program.official ? "ok" : "warn"}`}>
-          {program.official ? t("detail.officialBadge") : t("detail.communityBadge")}
-        </span>
-        <span className="pill">{program.version}</span>
-        <span className="pill">{program.license}</span>
-        {program.stars != null && (
-          <span className="pill">
-            {t("detail.stars")} {program.stars}
-          </span>
-        )}
-      </div>
-      <PermissionChips permissions={program.permissions} />
-      <div className="row" style={{ margin: "18px 0 28px" }}>
-        {inst ? (
-          <>
-            {running ? (
-              <button className="btn" type="button" onClick={() => void api.stop(id).then(() => setRunning(false))}>
-                {t("installed.stop")}
-              </button>
-            ) : (
-              <button
-                className="btn primary"
-                type="button"
-                disabled={starting}
-                onClick={async () => {
-                  setStarting(true);
-                  setError(null);
-                  try {
-                    await api.start(id);
-                    setRunning(true);
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : String(e));
-                  } finally {
-                    setStarting(false);
-                  }
-                }}
-              >
-                {starting ? t("installed.starting") : t("installed.run")}
-              </button>
+    <div className="program-page">
+      <header className={`program-hero${cover ? " has-cover" : ""}`}>
+        {cover && <img className="program-cover" src={cover} alt="" />}
+        <div className="program-hero-shade" aria-hidden />
+        <div className="program-hero-copy">
+          <p className="page-kicker">{program.sourceGithub}</p>
+          <h1 className="page-title">{name}</h1>
+          <p className="page-sub">{summary}</p>
+          <div className="row">
+            <span className={`pill ${program.official ? "ok" : "warn"}`}>
+              {program.official ? t("detail.officialBadge") : t("detail.communityBadge")}
+            </span>
+            {language && <span className="pill">{language}</span>}
+            {program.stars != null && (
+              <span className="pill">
+                <Star size={11} />
+                {formatCount(program.stars)}
+              </span>
             )}
-            <button className="btn" type="button" onClick={() => void api.openPath(inst.installPath)}>
-              {t("installed.folder")}
-            </button>
-            <button
-              className="btn danger"
-              type="button"
-              onClick={async () => {
-                await api.uninstall(id, false);
-                await refresh();
-              }}
-            >
-              {t("installed.uninstall")}
-            </button>
-          </>
-        ) : (
-          <button className="btn primary" type="button" disabled={busy} onClick={() => void doInstall(false)}>
-            {busy ? t("common.loading") : t("detail.install")}
-          </button>
-        )}
+            {program.forks != null && (
+              <span className="pill">
+                <GitFork size={11} />
+                {formatCount(program.forks)}
+              </span>
+            )}
+            {program.installed && <span className="pill">{t("detail.installed")}</span>}
+          </div>
+        </div>
+      </header>
+
+      <div className="program-layout">
+        <div className="program-main">
+          {gallery.length > 1 && <ShotCarousel images={gallery} label={t("detail.screenshots")} />}
+          <section className="readme-card">
+            <h2>{t("detail.readme")}</h2>
+            {program.readme ? <MarkdownView source={program.readme} /> : <p className="page-sub">{t("detail.noReadme")}</p>}
+          </section>
+        </div>
+
+        <aside className="program-aside">
+          <div className="repo-card">
+            <div className="repo-head">
+              {program.ownerAvatar ? (
+                <img src={program.ownerAvatar} alt="" className="repo-avatar" />
+              ) : (
+                <span className="repo-avatar fallback">{name.slice(0, 1)}</span>
+              )}
+              <div>
+                <strong>{t("detail.repo")}</strong>
+                <a href={repo} target="_blank" rel="noreferrer">
+                  {program.sourceGithub}
+                </a>
+              </div>
+            </div>
+            <dl className="repo-meta">
+              <div>
+                <dt>{t("detail.version")}</dt>
+                <dd>{program.version}</dd>
+              </div>
+              <div>
+                <dt>{t("detail.license")}</dt>
+                <dd>{program.license || "—"}</dd>
+              </div>
+              {language && (
+                <div>
+                  <dt>{t("detail.language")}</dt>
+                  <dd>{language}</dd>
+                </div>
+              )}
+              {program.stars != null && (
+                <div>
+                  <dt>{t("detail.stars")}</dt>
+                  <dd>{formatCount(program.stars)}</dd>
+                </div>
+              )}
+              {program.forks != null && (
+                <div>
+                  <dt>{t("detail.forks")}</dt>
+                  <dd>{formatCount(program.forks)}</dd>
+                </div>
+              )}
+              {updated && (
+                <div>
+                  <dt>{t("detail.updated")}</dt>
+                  <dd>{updated}</dd>
+                </div>
+              )}
+              {program.commitSha && (
+                <div>
+                  <dt>{t("detail.commit")}</dt>
+                  <dd className="mono">{program.commitSha.slice(0, 8)}</dd>
+                </div>
+              )}
+              {program.categories?.length > 0 && (
+                <div>
+                  <dt>{t("detail.category")}</dt>
+                  <dd>{program.categories.join(", ")}</dd>
+                </div>
+              )}
+            </dl>
+            <PermissionChips permissions={program.permissions} />
+            <div className="repo-actions">
+              {inst ? (
+                <>
+                  {running ? (
+                    <button className="btn" type="button" onClick={() => void api.stop(id).then(() => setRunning(false))}>
+                      {t("installed.stop")}
+                    </button>
+                  ) : (
+                    <button
+                      className="btn primary"
+                      type="button"
+                      disabled={starting}
+                      onClick={async () => {
+                        setStarting(true);
+                        setError(null);
+                        try {
+                          await api.start(id);
+                          setRunning(true);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : String(e));
+                        } finally {
+                          setStarting(false);
+                        }
+                      }}
+                    >
+                      {starting ? t("installed.starting") : t("installed.run")}
+                    </button>
+                  )}
+                  <button
+                    className="btn danger"
+                    type="button"
+                    onClick={async () => {
+                      await api.uninstall(id, false);
+                      await refresh();
+                    }}
+                  >
+                    {t("installed.uninstall")}
+                  </button>
+                </>
+              ) : (
+                <button className="btn primary" type="button" disabled={busy} onClick={() => void doInstall(false)}>
+                  {busy ? t("common.loading") : t("detail.install")}
+                </button>
+              )}
+            </div>
+            {progress && <p className="page-sub">{progress}</p>}
+            {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
+          </div>
+        </aside>
       </div>
-      {progress && <p>{progress}</p>}
-      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
-
-      {inst && schema && (
-        <section className="section">
-          <h2>{t("programSettings.title")}</h2>
-          <SettingsForm schema={schema} value={values} onChange={setValues} />
-          <button
-            className="btn primary"
-            type="button"
-            style={{ marginTop: 12 }}
-            onClick={() => void api.saveProgramSettings(id, values)}
-          >
-            {t("programSettings.save")}
-          </button>
-        </section>
-      )}
-
-      {inst && (
-        <section className="section">
-          <h2>{t("installed.logs")}</h2>
-          <pre className="logs">{logs || "—"}</pre>
-          <label className="row" style={{ marginTop: 10, gap: 12 }}>
-            <Switch
-              checked={inst.autostart}
-              onChange={(v) => void api.setAutostart(id, v).then(() => refresh())}
-              label={t("installed.autostart")}
-            />
-            {t("installed.autostart")}
-          </label>
-        </section>
-      )}
-
-      <section className="section">
-        <h2>{t("detail.readme")}</h2>
-        {program.readme ? <MarkdownView source={program.readme} /> : <p>{t("detail.noReadme")}</p>}
-      </section>
 
       {trust && (
         <TrustDialog

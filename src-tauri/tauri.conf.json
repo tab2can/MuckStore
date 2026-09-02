@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Muck Store",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.muckstore.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -23,8 +23,10 @@
         "fullscreen": false,
         "decorations": false,
         "shadow": true,
-        "transparent": false,
-        "center": true
+        "transparent": true,
+        "backgroundColor": "#00000000",
+        "center": true,
+        "scrollBarStyle": "fluentOverlay"
       }
     ],
     "security": {
@@ -62,7 +64,7 @@
       },
       "nsis": {
         "installMode": "both",
-        "displayLanguageSelector": true,
+        "displayLanguageSelector": false,
         "languages": ["English", "Turkish"],
         "installerIcon": "icons/icon.ico",
         "headerImage": "windows/nsis-header.bmp",

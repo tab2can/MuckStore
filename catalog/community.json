@@ -5,7 +5,10 @@
       "id": "com.example.untrusted-demo",
       "official": false,
       "featured": false,
-      "localResource": "programs/examples/untrusted-demo"
+      "localResource": "programs/examples/untrusted-demo",
+      "stars": 8,
+      "forks": 2,
+      "language": "PowerShell"
     }
   ]
 }

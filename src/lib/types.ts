@@ -74,6 +74,8 @@ export interface CatalogProgram {
   featured: boolean;
   sourceGithub: string;
   stars?: number | null;
+  forks?: number | null;
+  language?: string | null;
   updatedAt?: string | null;
   ownerAvatar?: string | null;
   readme?: string | null;
@@ -103,6 +105,7 @@ export interface InstalledProgram {
   pinnedVersion?: string | null;
   updateChannel: string;
   installedAt: string;
+  updatedAt?: string | null;
   manifest: MuckManifest;
   inventory: string[];
   previousPath?: string | null;
@@ -138,6 +141,7 @@ export interface StoreSettings {
   telemetry: boolean;
   updateChannel: string;
   customCss: boolean;
+  prefsRevision?: number;
 }
 
 export interface ThemePack {

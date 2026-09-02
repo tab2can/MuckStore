@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useApp, type OverlayId } from "../stores/useApp";
 
 export function CommandPalette({
   query,
@@ -13,16 +14,16 @@ export function CommandPalette({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const setOverlay = useApp((s) => s.setOverlay);
   const items = useMemo(
     () =>
       [
-        { label: t("nav.home"), to: "/" },
-        { label: t("nav.discover"), to: "/discover" },
-        { label: t("nav.library"), to: "/library" },
-        { label: t("nav.installed"), to: "/installed" },
-        { label: t("nav.updates"), to: "/updates" },
-        { label: t("nav.themes"), to: "/themes" },
-        { label: t("nav.settings"), to: "/settings" },
+        { label: t("nav.home"), to: "/" as const },
+        { label: t("nav.discover"), to: "/discover" as const },
+        { label: t("nav.library"), to: "/library" as const },
+        { label: t("nav.updates"), to: "/updates" as const },
+        { label: t("nav.themes"), overlay: "themes" as OverlayId },
+        { label: t("nav.settings"), overlay: "settings" as OverlayId },
       ].filter((i) => i.label.toLowerCase().includes(query.toLowerCase())),
     [query, t],
   );
@@ -38,10 +39,15 @@ export function CommandPalette({
         />
         {items.map((item) => (
           <button
-            key={item.to}
+            key={item.label}
             type="button"
             onClick={() => {
-              navigate(item.to);
+              if ("overlay" in item && item.overlay) {
+                setOverlay(item.overlay);
+              } else if ("to" in item && item.to) {
+                setOverlay(null);
+                navigate(item.to);
+              }
               onClose();
             }}
           >

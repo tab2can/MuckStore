@@ -24,10 +24,13 @@ pub fn sanitize_tokens(tokens: &mut std::collections::HashMap<String, String>) -
         if key.contains("font") {
             continue;
         }
-        if matches!(
-            key.as_str(),
-            "radius" | "radiusSm" | "blur"
-        ) {
+        if matches!(key.as_str(), "radius" | "radiusSm" | "blur") {
+            continue;
+        }
+        if is_fill_key(key) {
+            if !valid_fill(value) {
+                anyhow::bail!("theme token '{key}' must be none or a local linear/radial gradient");
+            }
             continue;
         }
         if !value.starts_with('#') && !value.starts_with("rgb") {
@@ -35,6 +38,27 @@ pub fn sanitize_tokens(tokens: &mut std::collections::HashMap<String, String>) -
         }
     }
     Ok(())
+}
+
+fn is_fill_key(key: &str) -> bool {
+    key.ends_with("Fill")
+}
+
+fn valid_fill(value: &str) -> bool {
+    let v = value.trim();
+    if v.eq_ignore_ascii_case("none") {
+        return true;
+    }
+    let lower = v.to_ascii_lowercase();
+    if !(lower.starts_with("linear-gradient(") || lower.starts_with("radial-gradient(")) {
+        return false;
+    }
+    if !v.ends_with(')') {
+        return false;
+    }
+    v.chars().all(|c| {
+        c.is_ascii_alphanumeric() || matches!(c, '#' | '(' | ')' | ',' | '.' | '%' | ' ' | '-' | '/')
+    })
 }
 
 pub fn load_installed_themes() -> Vec<ThemePack> {
@@ -63,10 +87,41 @@ pub fn import_theme_file(path: &Path) -> anyhow::Result<ThemePack> {
     let raw = std::fs::read_to_string(path)?;
     let mut pack: ThemePack = serde_json::from_str(&raw)?;
     sanitize_tokens(&mut pack.tokens)?;
+    save_theme_pack(pack)
+}
+
+pub fn save_theme_pack(mut pack: ThemePack) -> anyhow::Result<ThemePack> {
+    pack.id = pack
+        .id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    pack.id = pack.id.trim_matches('-').to_string();
+    if pack.id.is_empty() {
+        anyhow::bail!("theme id is empty");
+    }
+    if pack.name.trim().is_empty() {
+        anyhow::bail!("theme name is empty");
+    }
+    sanitize_tokens(&mut pack.tokens)?;
     std::fs::create_dir_all(paths::themes_dir())?;
     let dest = paths::themes_dir().join(format!("{}.json", pack.id));
-    std::fs::write(dest, serde_json::to_string_pretty(&pack)?)?;
+    std::fs::write(&dest, serde_json::to_string_pretty(&pack)?)?;
     Ok(pack)
+}
+
+pub fn delete_theme_pack(id: &str) -> anyhow::Result<()> {
+    let dest = paths::themes_dir().join(format!("{id}.json"));
+    if dest.exists() {
+        std::fs::remove_file(dest)?;
+    }
+    Ok(())
 }
 
 pub fn bundled_themes(app: &tauri::AppHandle) -> Vec<ThemePack> {
