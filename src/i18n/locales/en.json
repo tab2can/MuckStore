@@ -66,6 +66,7 @@
     "colUpdated": "Updated",
     "colVersion": "Version",
     "open": "Open page",
+    "settings": "Settings",
     "more": "More"
   },
   "installed": {
@@ -96,7 +97,8 @@
     "commit": "Commit",
     "repo": "Repository",
     "screenshots": "Screenshots",
-    "category": "Category"
+    "category": "Category",
+    "settings": "Settings"
   },
   "trust": {
     "title": "Approve this program",
@@ -154,7 +156,13 @@
     "checking": "Checking…",
     "checkNow": "Check for updates",
     "openUpdater": "Open store updater",
-    "subtitle": "Catalog programs update here. The store itself updates in a small window before it opens."
+    "subtitle": "Catalog programs update here. The store itself updates in a small window before it opens.",
+    "updateAll": "Update all",
+    "later": "Later",
+    "catalogNew": "New in the catalog",
+    "locked": "Locked",
+    "openProgram": "Open page",
+    "pending": "Pending updates"
   },
   "themes": {
     "title": "Themes",
@@ -339,10 +347,14 @@
     "configRoot": "Settings and themes",
     "openFolder": "Open",
     "updates": "Updates",
-    "updatesHint": "The store updater is a separate exe. Catalog programs update inside this window.",
-    "autoStore": "Update the store automatically",
-    "autoStoreHint": "When a newer installer is on GitHub, the updater applies it before opening the store.",
-    "autoPrograms": "Program updates",
+    "updatesHint": "The store and installed programs share this check. New catalog items are listed for information only.",
+    "autoStore": "Store app",
+    "autoStoreHint": "Automatic applies at launch through the updater. In-session store updates wait in the titlebar so this window is not closed.",
+    "autoPrograms": "Installed programs",
+    "autoProgramsHint": "Automatic installs in the background. Startup applies when the store opens. Manual only runs when you check.",
+    "updateAuto": "Automatic",
+    "updateStartup": "At startup",
+    "updateManual": "Manual",
     "auto": "Install automatically",
     "notify": "Notify me",
     "off": "Off",
@@ -377,6 +389,24 @@
     "keyboard": "Keyboard",
     "palette": "Command palette",
     "saved": "Saved"
+  },
+  "programSettings": {
+    "title": "Program settings",
+    "lock": "Version lock",
+    "lockHint": "Locked programs are skipped during update checks.",
+    "version": "Version",
+    "versionHint": "Install a GitHub release. Locking pins the selected tag.",
+    "args": "Launch arguments",
+    "argsHint": "Passed to the program on start, for example -test.",
+    "channel": "Update channel",
+    "stable": "Stable",
+    "pre": "Preview",
+    "enabled": "Enabled",
+    "enabledHint": "Disabled programs stay installed but do not start.",
+    "autostart": "Start with Windows",
+    "autostartHint": "Launches this program at sign-in.",
+    "autostartDenied": "This program did not declare the autostart permission.",
+    "missing": "This program is not installed."
   },
   "boot": {
     "hint": "Catalog and settings load from this PC. Store updates run in the updater before this window opens."

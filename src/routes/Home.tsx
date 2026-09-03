@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../stores/useApp";
@@ -23,8 +22,6 @@ export function Home() {
   const official = useApp((s) => s.official);
   const community = useApp((s) => s.community);
   const discovered = useApp((s) => s.discovered);
-  const updates = useApp((s) => s.updates);
-  const pending = updates.filter((u) => u.available);
 
   const [sort, setSort] = useState<SortKey>("stars");
   const [origin, setOrigin] = useState<OriginFilter>("all");
@@ -60,16 +57,6 @@ export function Home() {
 
   return (
     <div className="home">
-      {pending.length > 0 && (
-        <div className="home-banner">
-          <span>
-            {t("home.updates")}: {pending.length}
-          </span>
-          <Link className="btn sm" to="/updates">
-            {t("nav.updates")}
-          </Link>
-        </div>
-      )}
       <div className="spotlight-pair">
         <HomeCarousel
           kicker={t("home.spotlight")}

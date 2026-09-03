@@ -71,6 +71,8 @@ pub fn run() {
             commands::save_program_settings,
             commands::check_updates,
             commands::apply_program_update,
+            commands::list_program_releases,
+            commands::save_program_install_options,
             commands::list_themes,
             commands::import_theme,
             commands::save_theme,

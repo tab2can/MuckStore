@@ -66,6 +66,7 @@
     "colUpdated": "Güncelleme",
     "colVersion": "Sürüm",
     "open": "Sayfayı aç",
+    "settings": "Ayarlar",
     "more": "Diğer"
   },
   "installed": {
@@ -96,7 +97,8 @@
     "commit": "Commit",
     "repo": "Depo",
     "screenshots": "Görseller",
-    "category": "Kategori"
+    "category": "Kategori",
+    "settings": "Ayarlar"
   },
   "trust": {
     "title": "Bu programı onayla",
@@ -152,9 +154,15 @@
     "apply": "Güncelle",
     "rollback": "Geri al",
     "checking": "Kontrol ediliyor…",
-    "checkNow": "Güncellemeleri kontrol et",
+    "checkNow": "Güncellemeleri denetle",
     "openUpdater": "Mağaza updater’ını aç",
-    "subtitle": "Katalog programları burada güncellenir. Mağazanın kendisi açılmadan önce ayrı bir pencerede güncellenir."
+    "subtitle": "Katalog programları burada güncellenir. Mağazanın kendisi açılmadan önce ayrı bir pencerede güncellenir.",
+    "updateAll": "Tümünü güncelle",
+    "later": "Daha sonra",
+    "catalogNew": "Katalogda yeni",
+    "locked": "Kilitli",
+    "openProgram": "Sayfayı aç",
+    "pending": "Bekleyen güncellemeler"
   },
   "themes": {
     "title": "Temalar",
@@ -339,10 +347,14 @@
     "configRoot": "Ayarlar ve temalar",
     "openFolder": "Aç",
     "updates": "Güncellemeler",
-    "updatesHint": "Mağaza updater’ı ayrı bir exe. Katalog programları bu pencerede güncellenir.",
-    "autoStore": "Mağazayı otomatik güncelle",
-    "autoStoreHint": "GitHub’da yeni installer varsa updater mağazayı açmadan önce kurar.",
-    "autoPrograms": "Program güncellemeleri",
+    "updatesHint": "Denetim mağaza uygulamasını, yüklü programları ve katalog yenilemesini kapsar. Katalogdaki yeniler yalnızca bilgidir.",
+    "autoStore": "Mağaza uygulaması",
+    "autoStoreHint": "Otomatik kurulum yalnızca başlangıçta updater ile yapılır. Oturum içinde bulunan mağaza sürümü titlebar’da bekler.",
+    "autoPrograms": "Yüklü programlar",
+    "autoProgramsHint": "Otomatik arka planda kurar. Başlangıçta yalnızca uygulama açılırken uygulanır. Manuel yalnızca sen denetleyince çalışır.",
+    "updateAuto": "Otomatik",
+    "updateStartup": "Başlangıçta",
+    "updateManual": "Manuel",
     "auto": "Otomatik kur",
     "notify": "Bildir",
     "off": "Kapalı",
@@ -377,6 +389,24 @@
     "keyboard": "Klavye",
     "palette": "Komut paleti",
     "saved": "Kaydedildi"
+  },
+  "programSettings": {
+    "title": "Program ayarları",
+    "lock": "Sürüm kilidi",
+    "lockHint": "Kilitli programlar güncelleme denetiminde atlanır.",
+    "version": "Sürüm",
+    "versionHint": "Bir GitHub sürümünü kur. Kilit açıksa seçilen etiket pinlenir.",
+    "args": "Başlatma argümanları",
+    "argsHint": "Program açılırken iletilir, örneğin -test.",
+    "channel": "Güncelleme kanalı",
+    "stable": "Kararlı",
+    "pre": "Önizleme",
+    "enabled": "Etkin",
+    "enabledHint": "Kapalı programlar kurulu kalır ama başlatılmaz.",
+    "autostart": "Oturumda başlat",
+    "autostartHint": "Oturum açınca bu programı çalıştırır.",
+    "autostartDenied": "Bu program autostart iznini bildirmedi.",
+    "missing": "Bu program yüklü değil."
   },
   "boot": {
     "hint": "Katalog ve ayarlar bu PC’den yüklenir. Mağaza güncellemeleri bu pencereden önce updater’da çalışır."

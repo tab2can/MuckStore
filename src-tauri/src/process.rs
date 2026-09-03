@@ -45,6 +45,9 @@ impl ProcessManager {
             .open(&log_path)?;
         let err = log.try_clone()?;
         let mut cmd = command_for_entry(&entry, &dir)?;
+        for arg in split_launch_args(&program.launch_args) {
+            cmd.arg(arg);
+        }
         cmd.current_dir(&dir)
             .env("MUCK_PROGRAM_DIR", &program.install_path)
             .env("MUCK_PROGRAM_ID", &program.id)
@@ -190,6 +193,29 @@ fn command_for_entry(entry: &std::path::Path, install_dir: &PathBuf) -> anyhow::
         }
     }
     Ok(cmd)
+}
+
+fn split_launch_args(raw: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut quote: Option<char> = None;
+    for c in raw.chars() {
+        match quote {
+            Some(q) if c == q => quote = None,
+            Some(_) => cur.push(c),
+            None if c == '"' || c == '\'' => quote = Some(c),
+            None if c.is_whitespace() => {
+                if !cur.is_empty() {
+                    out.push(std::mem::take(&mut cur));
+                }
+            }
+            None => cur.push(c),
+        }
+    }
+    if !cur.is_empty() {
+        out.push(cur);
+    }
+    out
 }
 
 fn is_gui_script(entry: &std::path::Path) -> bool {

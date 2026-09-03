@@ -1,5 +1,7 @@
 # Reproducible builds and GitHub Actions
 
+Start here if you already have `muck.json` and need a store-ready Release. Full publisher playbook: [developer-guide.md](developer-guide.md).
+
 Muck Store has **no server**. The client talks to GitHub (and GitHub’s public Artifact Attestations / Sigstore path). A Release zip can be uploaded by anyone with write access, so the store **does not trust the file just because it sits on Releases**.
 
 For any `install.assets` payload (`archive`, `msi`, `nsis`, `inno`, `runtime`, or `portable` with hashed assets) the client requires:

@@ -350,6 +350,8 @@ pub struct InstalledProgram {
     pub pinned_version: Option<String>,
     #[serde(default)]
     pub update_channel: String,
+    #[serde(default)]
+    pub launch_args: String,
     pub installed_at: String,
     #[serde(default)]
     pub updated_at: String,
@@ -391,8 +393,20 @@ pub struct StoreSettings {
     pub proxy: Option<String>,
     pub warn_third_party: bool,
     pub hash_fail_policy: String,
+    #[serde(default)]
     pub auto_update_store: bool,
+    #[serde(default)]
     pub auto_update_programs: String,
+    #[serde(default)]
+    pub store_update_policy: String,
+    #[serde(default)]
+    pub program_update_policy: String,
+    #[serde(default)]
+    pub last_update_check_at: Option<String>,
+    #[serde(default)]
+    pub update_check_backoff_until: Option<String>,
+    #[serde(default)]
+    pub last_catalog_ids: Vec<String>,
     #[serde(default)]
     pub quiet_hours_start: Option<String>,
     #[serde(default)]
@@ -432,6 +446,11 @@ impl Default for StoreSettings {
             hash_fail_policy: "reject".into(),
             auto_update_store: true,
             auto_update_programs: "notify".into(),
+            store_update_policy: "startup".into(),
+            program_update_policy: "startup".into(),
+            last_update_check_at: None,
+            update_check_backoff_until: None,
+            last_catalog_ids: Vec::new(),
             quiet_hours_start: None,
             quiet_hours_end: None,
             developer_mode: false,
@@ -469,6 +488,8 @@ pub struct InstallRequest {
     pub trust_accepted: bool,
     #[serde(default)]
     pub official: bool,
+    #[serde(default)]
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -531,6 +552,35 @@ pub struct UpdateInfo {
     pub available: Option<String>,
     pub changelog: Option<String>,
     pub store: bool,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub pinned: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgramRelease {
+    pub tag: String,
+    pub prerelease: bool,
+    #[serde(default)]
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgramInstallOptions {
+    pub id: String,
+    #[serde(default)]
+    pub pinned_version: Option<String>,
+    #[serde(default)]
+    pub launch_args: String,
+    #[serde(default)]
+    pub update_channel: String,
+    pub autostart: bool,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -17,17 +17,51 @@ pub fn load_store_settings() -> StoreSettings {
         settings.prefs_revision = 1;
         let _ = save_store_settings(&settings);
     }
+    let needs_policy = settings.store_update_policy.is_empty()
+        || settings.program_update_policy.is_empty();
+    migrate_update_policies(&mut settings);
+    if needs_policy {
+        let _ = write_store_settings(&settings);
+    }
     settings
 }
 
+fn migrate_update_policies(settings: &mut StoreSettings) {
+    if settings.store_update_policy.is_empty() {
+        settings.store_update_policy = if settings.auto_update_store {
+            "startup".into()
+        } else {
+            "manual".into()
+        };
+    }
+    if settings.program_update_policy.is_empty() {
+        settings.program_update_policy = match settings.auto_update_programs.as_str() {
+            "auto" => "auto".into(),
+            "off" => "manual".into(),
+            _ => "startup".into(),
+        };
+    }
+    settings.auto_update_store = settings.store_update_policy != "manual";
+    settings.auto_update_programs = match settings.program_update_policy.as_str() {
+        "auto" => "auto".into(),
+        "manual" => "off".into(),
+        _ => "notify".into(),
+    };
+}
+
 pub fn save_store_settings(settings: &StoreSettings) -> anyhow::Result<()> {
+    let mut settings = settings.clone();
+    migrate_update_policies(&mut settings);
+    write_store_settings(&settings)
+}
+
+fn write_store_settings(settings: &StoreSettings) -> anyhow::Result<()> {
     paths::ensure_dirs(settings.install_path.as_deref())?;
     let path = paths::settings_path();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let raw = serde_json::to_string_pretty(settings)?;
-    std::fs::write(path, raw)?;
+    std::fs::write(path, serde_json::to_string_pretty(settings)?)?;
     Ok(())
 }
 

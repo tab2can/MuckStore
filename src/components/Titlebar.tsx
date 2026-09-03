@@ -1,12 +1,16 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Minus, Square, X } from "lucide-react";
+import { Download, Minus, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { isTauri } from "../lib/api";
 import { useApp } from "../stores/useApp";
 
 export function Titlebar() {
+  const { t } = useTranslation();
   const [maximized, setMaximized] = useState(false);
   const trayEnabled = useApp((s) => s.settings?.trayEnabled ?? false);
+  const updatesPending = useApp((s) => s.updatesPending);
+  const openUpdates = useApp((s) => s.openUpdates);
 
   useEffect(() => {
     if (!isTauri) return;
@@ -37,19 +41,31 @@ export function Titlebar() {
         <strong>MUCK</strong> STORE
       </div>
       <div className="titlebar-space" data-tauri-drag-region />
-      {isTauri && (
-        <div className="titlebar-controls">
-          <button className="titlebar-btn" type="button" aria-label="Minimize" onClick={() => void act("min")}>
-            <Minus size={12} />
+      <div className="titlebar-controls">
+        {updatesPending && (
+          <button
+            className="titlebar-btn update"
+            type="button"
+            aria-label={t("updates.pending")}
+            onClick={() => openUpdates()}
+          >
+            <Download size={13} strokeWidth={2.2} />
           </button>
-          <button className="titlebar-btn" type="button" aria-label="Maximize" onClick={() => void act("max")}>
-            <Square size={9} strokeWidth={maximized ? 2.4 : 2} />
-          </button>
-          <button className="titlebar-btn close" type="button" aria-label="Close" onClick={() => void act("close")}>
-            <X size={12} />
-          </button>
-        </div>
-      )}
+        )}
+        {isTauri && (
+          <>
+            <button className="titlebar-btn" type="button" aria-label="Minimize" onClick={() => void act("min")}>
+              <Minus size={12} />
+            </button>
+            <button className="titlebar-btn" type="button" aria-label="Maximize" onClick={() => void act("max")}>
+              <Square size={9} strokeWidth={maximized ? 2.4 : 2} />
+            </button>
+            <button className="titlebar-btn close" type="button" aria-label="Close" onClick={() => void act("close")}>
+              <X size={12} />
+            </button>
+          </>
+        )}
+      </div>
     </header>
   );
 }

@@ -7,6 +7,7 @@ import { Titlebar } from "../components/Titlebar";
 import { Themes } from "../routes/Themes";
 import { SettingsPage } from "../routes/Settings";
 import { ThemeStudio } from "../components/ThemeStudio";
+import { ProgramSettings } from "../components/ProgramSettings";
 import { useEffect, useState } from "react";
 import { useNavWidth } from "../lib/navWidth";
 
@@ -90,7 +91,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 type="button"
                 className={`nav-link${overlay === l.id || (Boolean(studio) && l.id === "themes") ? " active" : ""}`}
                 title={t(l.key)}
-                onClick={() => setOverlay(overlay === l.id ? null : l.id)}
+                onClick={() => {
+                  if (overlay === l.id) {
+                    setOverlay(null);
+                    return;
+                  }
+                  if (l.id === "settings") useApp.setState({ overlay: "settings", settingsSection: "appearance", studio: null });
+                  else setOverlay(l.id);
+                }}
               >
                 <l.icon size={16} strokeWidth={1.75} />
                 <span>{t(l.key)}</span>
@@ -134,7 +142,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {overlay && !studio && (
           <div className="sheet-backdrop" onClick={() => setOverlay(null)}>
             <div
-              className={`sheet${overlay === "settings" ? " settings-sheet" : ""}`}
+              className={`sheet${overlay === "settings" || overlay === "program" ? " settings-sheet" : ""}`}
               role="dialog"
               aria-modal="true"
               onClick={(e) => e.stopPropagation()}
@@ -147,7 +155,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
               >
                 <X size={16} />
               </button>
-              {overlay === "themes" ? <Themes /> : <SettingsPage />}
+              {overlay === "themes" ? (
+                <Themes />
+              ) : overlay === "program" ? (
+                <ProgramSettings />
+              ) : (
+                <SettingsPage />
+              )}
             </div>
           </div>
         )}

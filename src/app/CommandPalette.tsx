@@ -15,13 +15,14 @@ export function CommandPalette({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const setOverlay = useApp((s) => s.setOverlay);
+  const openUpdates = useApp((s) => s.openUpdates);
   const items = useMemo(
     () =>
       [
         { label: t("nav.home"), to: "/" as const },
         { label: t("nav.discover"), to: "/discover" as const },
         { label: t("nav.library"), to: "/library" as const },
-        { label: t("nav.updates"), to: "/updates" as const },
+        { label: t("nav.updates"), updates: true as const },
         { label: t("nav.themes"), overlay: "themes" as OverlayId },
         { label: t("nav.settings"), overlay: "settings" as OverlayId },
       ].filter((i) => i.label.toLowerCase().includes(query.toLowerCase())),
@@ -42,8 +43,14 @@ export function CommandPalette({
             key={item.label}
             type="button"
             onClick={() => {
-              if ("overlay" in item && item.overlay) {
-                setOverlay(item.overlay);
+              if ("updates" in item && item.updates) {
+                openUpdates();
+              } else if ("overlay" in item && item.overlay) {
+                if (item.overlay === "settings") {
+                  useApp.setState({ overlay: "settings", settingsSection: "appearance", studio: null });
+                } else {
+                  setOverlay(item.overlay);
+                }
               } else if ("to" in item && item.to) {
                 setOverlay(null);
                 navigate(item.to);

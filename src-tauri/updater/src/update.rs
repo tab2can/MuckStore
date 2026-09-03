@@ -110,6 +110,9 @@ fn auto_update_enabled() -> bool {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else {
         return true;
     };
+    if let Some(policy) = v.get("storeUpdatePolicy").and_then(|x| x.as_str()) {
+        return policy != "manual";
+    }
     v.get("autoUpdateStore")
         .and_then(|x| x.as_bool())
         .unwrap_or(true)

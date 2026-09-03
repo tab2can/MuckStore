@@ -104,6 +104,7 @@ export interface InstalledProgram {
   autostart: boolean;
   pinnedVersion?: string | null;
   updateChannel: string;
+  launchArgs?: string;
   installedAt: string;
   updatedAt?: string | null;
   manifest: MuckManifest;
@@ -131,6 +132,11 @@ export interface StoreSettings {
   hashFailPolicy: string;
   autoUpdateStore: boolean;
   autoUpdatePrograms: string;
+  storeUpdatePolicy: string;
+  programUpdatePolicy: string;
+  lastUpdateCheckAt?: string | null;
+  updateCheckBackoffUntil?: string | null;
+  lastCatalogIds?: string[];
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
   developerMode: boolean;
@@ -157,6 +163,7 @@ export interface InstallRequest {
   id?: string | null;
   trustAccepted: boolean;
   official: boolean;
+  version?: string | null;
 }
 
 export interface VerifyCheck {
@@ -198,6 +205,15 @@ export interface UpdateInfo {
   available?: string | null;
   changelog?: string | null;
   store: boolean;
+  kind?: string;
+  name?: string;
+  pinned?: boolean;
+}
+
+export interface ProgramRelease {
+  tag: string;
+  prerelease: boolean;
+  body?: string | null;
 }
 
 export interface AppPaths {

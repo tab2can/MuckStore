@@ -6,6 +6,7 @@ import type {
   InstalledProgram,
   MuckManifest,
   ProcessStatus,
+  ProgramRelease,
   StoreSettings,
   ThemePack,
   TrustRecord,
@@ -48,7 +49,17 @@ export const api = {
   saveProgramSettings: (id: string, value: Record<string, unknown>) =>
     call<void>("save_program_settings", { id, value }),
   updates: () => call<UpdateInfo[]>("check_updates"),
-  applyUpdate: (id: string) => call<InstalledProgram>("apply_program_update", { id }),
+  applyUpdate: (id: string, version?: string) =>
+    call<InstalledProgram>("apply_program_update", { id, version }),
+  programReleases: (id: string) => call<ProgramRelease[]>("list_program_releases", { id }),
+  saveProgramInstallOptions: (options: {
+    id: string;
+    pinnedVersion?: string | null;
+    launchArgs: string;
+    updateChannel: string;
+    autostart: boolean;
+    enabled: boolean;
+  }) => call<InstalledProgram>("save_program_install_options", { options }),
   themes: () => call<ThemePack[]>("list_themes"),
   importTheme: (path: string) => call<ThemePack>("import_theme", { path }),
   saveTheme: (pack: ThemePack) => call<ThemePack>("save_theme", { pack }),
@@ -111,6 +122,7 @@ function mockInstalledOf(
     enabled: true,
     autostart: false,
     updateChannel: "stable",
+    launchArgs: "",
     installedAt,
     updatedAt,
     manifest,
@@ -121,6 +133,38 @@ function mockInstalledOf(
 const mockRunning = new Set<string>();
 let mockInstalled: InstalledProgram[] | null = null;
 let mockCustomThemes: ThemePack[] = [];
+let mockSettings: StoreSettings | null = null;
+
+function defaultMockSettings(): StoreSettings {
+  return {
+    language: "system",
+    themeId: "system",
+    density: "comfortable",
+    sidebarPosition: "left",
+    mica: false,
+    animations: true,
+    reducedMotion: false,
+    fontScale: 1,
+    startWithWindows: false,
+    startMinimized: false,
+    trayEnabled: true,
+    warnThirdParty: true,
+    hashFailPolicy: "reject",
+    autoUpdateStore: true,
+    autoUpdatePrograms: "notify",
+    storeUpdatePolicy: "startup",
+    programUpdatePolicy: "startup",
+    lastCatalogIds: [],
+    developerMode: true,
+    verboseLogs: false,
+    defenderExclusionConsent: false,
+    isolationJobObject: false,
+    telemetry: false,
+    updateChannel: "stable",
+    customCss: false,
+    prefsRevision: 1,
+  };
+}
 
 function ensureMockInstalled(): InstalledProgram[] {
   if (!mockInstalled) {
@@ -382,31 +426,10 @@ function mock(cmd: string, args?: Record<string, unknown>): unknown {
   ];
   switch (cmd) {
     case "get_store_settings":
-      return {
-        language: "system",
-        themeId: "system",
-        density: "comfortable",
-        sidebarPosition: "left",
-        mica: false,
-        animations: true,
-        reducedMotion: false,
-        fontScale: 1,
-        startWithWindows: false,
-        startMinimized: false,
-        trayEnabled: true,
-        warnThirdParty: true,
-        hashFailPolicy: "reject",
-        autoUpdateStore: true,
-        autoUpdatePrograms: "notify",
-        developerMode: true,
-        verboseLogs: false,
-        defenderExclusionConsent: false,
-        isolationJobObject: false,
-        telemetry: false,
-        updateChannel: "stable",
-        customCss: false,
-        prefsRevision: 1,
-      } satisfies StoreSettings;
+      return mockSettings ?? (mockSettings = defaultMockSettings());
+    case "save_store_settings":
+      mockSettings = args?.settings as StoreSettings;
+      return null;
     case "official_catalog":
       return official;
     case "community_catalog":
@@ -426,7 +449,7 @@ function mock(cmd: string, args?: Record<string, unknown>): unknown {
       const list = ensureMockInstalled();
       const i = list.findIndex((p) => p.id === args?.id);
       if (i < 0) return null;
-      const nextVer = "1.2.0";
+      const nextVer = String(args?.version ?? "1.2.0");
       list[i] = {
         ...list[i],
         version: nextVer,
@@ -455,18 +478,60 @@ function mock(cmd: string, args?: Record<string, unknown>): unknown {
     case "delete_theme":
       mockCustomThemes = mockCustomThemes.filter((t) => t.id !== args?.id);
       return null;
-    case "check_updates":
-      return ensureMockInstalled().some((p) => p.id === "com.demo.copper-term" && p.version === "1.0.0")
-        ? [
-            {
-              id: "com.demo.copper-term",
-              current: "1.0.0",
-              available: "1.2.0",
-              changelog: "Session notes polish.",
-              store: false,
-            },
-          ]
-        : [];
+    case "check_updates": {
+      const items: UpdateInfo[] = [
+        {
+          id: "com.muckstore.app",
+          current: "1.0.0",
+          available: "1.0.1",
+          store: true,
+          kind: "store",
+          name: "Muck Store",
+          pinned: false,
+        },
+      ];
+      if (ensureMockInstalled().some((p) => p.id === "com.demo.copper-term" && p.version === "1.0.0")) {
+        items.push({
+          id: "com.demo.copper-term",
+          current: "1.0.0",
+          available: "1.2.0",
+          changelog: "Session notes polish.",
+          store: false,
+          kind: "program",
+          name: "Copper Term",
+          pinned: false,
+        });
+      }
+      return items;
+    }
+    case "list_program_releases":
+      return [
+        { tag: "1.2.0", prerelease: false, body: "Latest" },
+        { tag: "1.1.0", prerelease: false, body: null },
+        { tag: "1.0.0", prerelease: false, body: null },
+      ];
+    case "save_program_install_options": {
+      const options = args?.options as {
+        id: string;
+        pinnedVersion?: string | null;
+        launchArgs: string;
+        updateChannel: string;
+        autostart: boolean;
+        enabled: boolean;
+      };
+      const list = ensureMockInstalled();
+      const i = list.findIndex((p) => p.id === options.id);
+      if (i < 0) return null;
+      list[i] = {
+        ...list[i],
+        pinnedVersion: options.pinnedVersion,
+        launchArgs: options.launchArgs,
+        updateChannel: options.updateChannel,
+        autostart: options.autostart,
+        enabled: options.enabled,
+      };
+      return list[i];
+    }
     case "get_program":
       return [...official, ...community, ...discovered].find((p) => p.id === args?.id) ?? official[0];
     case "search_github":

@@ -1,4 +1,4 @@
-use crate::models::{CatalogProgram, MuckManifest};
+use crate::models::{CatalogProgram, MuckManifest, ProgramRelease};
 use crate::paths;
 use crate::settings;
 use serde::Deserialize;
@@ -175,6 +175,16 @@ async fn cached_get(
     }
     let req = apply_auth(http.get(url), token);
     let res = req.send().await?;
+    let status = res.status().as_u16();
+    let remaining = res
+        .headers()
+        .get("x-ratelimit-remaining")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    if status == 429 || (status == 403 && remaining == "0") {
+        anyhow::bail!("rate-limited");
+    }
     if !res.status().is_success() {
         anyhow::bail!("GitHub request failed: {} {url}", res.status());
     }
@@ -210,7 +220,16 @@ pub async fn github_json(
         .send()
         .await?;
     let status = res.status().as_u16();
+    let remaining = res
+        .headers()
+        .get("x-ratelimit-remaining")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
     let text = res.text().await?;
+    if status == 429 || (status == 403 && remaining == "0") {
+        anyhow::bail!("rate-limited");
+    }
     if status == 200 && cache_secs > 0 {
         let key = crate::security::sha256_bytes(url.as_bytes());
         let cache_file = paths::cache_dir().join("github").join(format!("{key}.json"));
@@ -421,18 +440,58 @@ pub async fn latest_release(
     proxy: Option<&str>,
     include_pre: bool,
 ) -> anyhow::Result<Option<(String, Option<String>, Vec<(String, String)>)>> {
+    let releases = fetch_releases(github, token, proxy).await?;
+    let rel = releases.into_iter().find(|r| include_pre || !r.prerelease);
+    Ok(rel.map(release_tuple))
+}
+
+pub async fn release_by_tag(
+    github: &str,
+    tag: &str,
+    token: Option<&str>,
+    proxy: Option<&str>,
+) -> anyhow::Result<Option<(String, Option<String>, Vec<(String, String)>)>> {
+    let want = tag.trim_start_matches('v');
+    let releases = fetch_releases(github, token, proxy).await?;
+    Ok(releases
+        .into_iter()
+        .find(|r| r.tag_name.trim_start_matches('v') == want)
+        .map(release_tuple))
+}
+
+pub async fn list_releases(
+    github: &str,
+    token: Option<&str>,
+    proxy: Option<&str>,
+) -> anyhow::Result<Vec<ProgramRelease>> {
+    let releases = fetch_releases(github, token, proxy).await?;
+    Ok(releases
+        .into_iter()
+        .map(|r| ProgramRelease {
+            tag: r.tag_name.trim_start_matches('v').to_string(),
+            prerelease: r.prerelease,
+            body: r.body,
+        })
+        .collect())
+}
+
+async fn fetch_releases(
+    github: &str,
+    token: Option<&str>,
+    proxy: Option<&str>,
+) -> anyhow::Result<Vec<GithubRelease>> {
     let github = github.replace("https://github.com/", "");
     let http = client(token, proxy)?;
     let url = format!("https://api.github.com/repos/{github}/releases");
     let raw = cached_get(&http, &url, token).await?;
-    let releases: Vec<GithubRelease> = serde_json::from_str(&raw)?;
-    let rel = releases.into_iter().find(|r| include_pre || !r.prerelease);
-    Ok(rel.map(|r| {
-        let assets = r
-            .assets
-            .into_iter()
-            .map(|a| (a.name, a.browser_download_url))
-            .collect();
-        (r.tag_name.trim_start_matches('v').to_string(), r.body, assets)
-    }))
+    Ok(serde_json::from_str(&raw)?)
+}
+
+fn release_tuple(r: GithubRelease) -> (String, Option<String>, Vec<(String, String)>) {
+    let assets = r
+        .assets
+        .into_iter()
+        .map(|a| (a.name, a.browser_download_url))
+        .collect();
+    (r.tag_name.trim_start_matches('v').to_string(), r.body, assets)
 }

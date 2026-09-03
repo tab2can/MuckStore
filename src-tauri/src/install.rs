@@ -46,9 +46,15 @@ pub async fn install(
     if !catalog.official && !request.trust_accepted {
         anyhow::bail!("trust_required");
     }
+    let version_folder = request
+        .version
+        .as_deref()
+        .unwrap_or(manifest.version.as_str())
+        .trim_start_matches('v')
+        .to_string();
     let dest = paths::programs_root(install_root)
         .join(&manifest.id)
-        .join(&manifest.version);
+        .join(&version_folder);
     std::fs::create_dir_all(dest.parent().unwrap())?;
 
     let mut previous_path = None;
@@ -66,7 +72,17 @@ pub async fn install(
             let src = paths::resolve_resource(app, rel);
             archive::copy_tree(&src, &dest)?
         }
-        None => fetch_remote(&manifest, &dest, token, proxy, hash_fail_policy).await?,
+        None => {
+            fetch_remote(
+                &manifest,
+                &dest,
+                token,
+                proxy,
+                hash_fail_policy,
+                request.version.as_deref(),
+            )
+            .await?
+        }
     };
     if inventory.is_empty() {
         inventory = archive::collect_inventory(&dest);
@@ -133,16 +149,30 @@ pub async fn install(
 
     let mut registry = settings::load_registry();
     let (installed_at, updated_at) = install_times(&registry, &manifest.id);
+    let prev = registry.programs.get(&manifest.id).cloned();
+    let pinned_version = if prev.as_ref().and_then(|p| p.pinned_version.as_ref()).is_some() {
+        Some(version_folder.clone())
+    } else {
+        None
+    };
     let installed = InstalledProgram {
         id: manifest.id.clone(),
-        version: manifest.version.clone(),
+        version: version_folder,
         install_path: dest.to_string_lossy().to_string(),
         official: catalog.official,
         source_github: manifest.source.github.clone(),
-        enabled: true,
-        autostart: false,
-        pinned_version: None,
-        update_channel: "stable".into(),
+        enabled: prev.as_ref().map(|p| p.enabled).unwrap_or(true),
+        autostart: prev.as_ref().map(|p| p.autostart).unwrap_or(false),
+        pinned_version,
+        update_channel: prev
+            .as_ref()
+            .map(|p| p.update_channel.clone())
+            .filter(|c| !c.is_empty())
+            .unwrap_or_else(|| "stable".into()),
+        launch_args: prev
+            .as_ref()
+            .map(|p| p.launch_args.clone())
+            .unwrap_or_default(),
         installed_at,
         updated_at,
         manifest,
@@ -200,6 +230,7 @@ async fn fetch_remote(
     token: Option<&str>,
     proxy: Option<&str>,
     hash_fail_policy: &str,
+    version: Option<&str>,
 ) -> anyhow::Result<Vec<String>> {
     let asset = manifest
         .install
@@ -207,17 +238,16 @@ async fn fetch_remote(
         .iter()
         .find(|a| a.platform == "windows-x64" || a.platform == "any")
         .cloned();
-    let release = crate::catalog::latest_release(
-        &manifest.source.github,
-        token,
-        proxy,
-        manifest
-            .update
-            .as_ref()
-            .and_then(|u| u.include_prerelease)
-            .unwrap_or(false),
-    )
-    .await?;
+    let include_pre = manifest
+        .update
+        .as_ref()
+        .and_then(|u| u.include_prerelease)
+        .unwrap_or(false);
+    let release = if let Some(tag) = version {
+        crate::catalog::release_by_tag(&manifest.source.github, tag, token, proxy).await?
+    } else {
+        crate::catalog::latest_release(&manifest.source.github, token, proxy, include_pre).await?
+    };
     let (url, sha, file_name) = if let Some(asset) = asset {
         let url = if let Some(url) = asset.url.clone() {
             url
@@ -479,16 +509,25 @@ pub fn sideload(app: &AppHandle, folder: &Path, developer_mode: bool) -> anyhow:
     }
     let mut registry = settings::load_registry();
     let (installed_at, updated_at) = install_times(&registry, &manifest.id);
+    let prev = registry.programs.get(&manifest.id).cloned();
     let installed = InstalledProgram {
         id: manifest.id.clone(),
         version: manifest.version.clone(),
         install_path: dest.to_string_lossy().to_string(),
         official: false,
         source_github: manifest.source.github.clone(),
-        enabled: true,
-        autostart: false,
-        pinned_version: None,
-        update_channel: "stable".into(),
+        enabled: prev.as_ref().map(|p| p.enabled).unwrap_or(true),
+        autostart: prev.as_ref().map(|p| p.autostart).unwrap_or(false),
+        pinned_version: prev.as_ref().and_then(|p| p.pinned_version.clone()),
+        update_channel: prev
+            .as_ref()
+            .map(|p| p.update_channel.clone())
+            .filter(|c| !c.is_empty())
+            .unwrap_or_else(|| "stable".into()),
+        launch_args: prev
+            .as_ref()
+            .map(|p| p.launch_args.clone())
+            .unwrap_or_default(),
         installed_at,
         updated_at,
         manifest,

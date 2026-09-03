@@ -10,12 +10,13 @@ export function Library() {
   const { t } = useTranslation();
   const installed = useApp((s) => s.installed);
   const updates = useApp((s) => s.updates);
+  const checking = useApp((s) => s.checkingUpdates);
+  const checkUpdates = useApp((s) => s.checkUpdates);
   const [status, setStatus] = useState<Record<string, ProcessStatus>>({});
   const [starting, setStarting] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
 
   const pendingMap = useMemo(() => {
-    const map = new Map(updates.filter((u) => u.available && !u.store).map((u) => [u.id, u]));
+    const map = new Map(updates.filter((u) => u.available && !u.store && !u.pinned).map((u) => [u.id, u]));
     return map;
   }, [updates]);
 
@@ -35,10 +36,6 @@ export function Library() {
   }, [installed, pendingMap]);
 
   useEffect(() => {
-    void api.updates().then((list) => useApp.setState({ updates: list }));
-  }, []);
-
-  useEffect(() => {
     let cancel = false;
     const tick = async () => {
       const next: Record<string, ProcessStatus> = {};
@@ -54,16 +51,6 @@ export function Library() {
       window.clearInterval(id);
     };
   }, [installed]);
-
-  async function checkUpdates() {
-    setChecking(true);
-    try {
-      const list = await api.updates();
-      useApp.setState({ updates: list });
-    } finally {
-      setChecking(false);
-    }
-  }
 
   async function start(id: string) {
     setStarting(id);
@@ -114,7 +101,7 @@ export function Library() {
     <div className="library-page">
       <div className="library-head">
         <h1 className="page-title">{t("library.title")}</h1>
-        <button className="btn" type="button" disabled={checking} onClick={() => void checkUpdates()}>
+        <button className="btn" type="button" disabled={checking} onClick={() => void checkUpdates("manual")}>
           {checking ? t("updates.checking") : t("library.checkUpdates")}
         </button>
       </div>

@@ -7,7 +7,6 @@ import { Home } from "../routes/Home";
 import { Discover } from "../routes/Discover";
 import { Library } from "../routes/Library";
 import { ProgramDetail } from "../routes/ProgramDetail";
-import { Updates } from "../routes/Updates";
 
 function OverlayRoute({ id }: { id: OverlayId }) {
   const setOverlay = useApp((s) => s.setOverlay);
@@ -16,6 +15,16 @@ function OverlayRoute({ id }: { id: OverlayId }) {
     setOverlay(id);
     navigate("/", { replace: true });
   }, [id, navigate, setOverlay]);
+  return null;
+}
+
+function UpdatesRoute() {
+  const openUpdates = useApp((s) => s.openUpdates);
+  const navigate = useNavigate();
+  useEffect(() => {
+    openUpdates();
+    navigate("/", { replace: true });
+  }, [navigate, openUpdates]);
   return null;
 }
 
@@ -54,7 +63,7 @@ export default function App() {
           <Route path="/library" element={<Library />} />
           <Route path="/installed" element={<Navigate to="/library" replace />} />
           <Route path="/program/:id" element={<ProgramDetail />} />
-          <Route path="/updates" element={<Updates />} />
+          <Route path="/updates" element={<UpdatesRoute />} />
           <Route path="/themes" element={<OverlayRoute id="themes" />} />
           <Route path="/settings" element={<OverlayRoute id="settings" />} />
           <Route path="*" element={<Navigate to="/" replace />} />

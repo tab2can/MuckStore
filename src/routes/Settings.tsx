@@ -15,12 +15,13 @@ import { api, isTauri } from "../lib/api";
 import type { StoreSettings, TrustRecord } from "../lib/types";
 import { SUPPORTED_LOCALES } from "../i18n/catalog";
 import { useNavWidth } from "../lib/navWidth";
-import { useApp } from "../stores/useApp";
+import { useApp, type SettingsSection } from "../stores/useApp";
 import { Switch } from "../components/ui/Switch";
 import { Slider } from "../components/ui/Slider";
 import { Segmented } from "../components/ui/Segmented";
 import { FilterSelect } from "../components/ui/FilterSelect";
 import { SettingRow } from "../components/ui/SettingRow";
+import { UpdateInbox } from "../components/UpdateInbox";
 
 const NAV_KEY = "muck-settings-nav-width";
 
@@ -35,8 +36,6 @@ const sections = [
   { id: "developer", key: "settings.developer", icon: Code2 },
 ] as const;
 
-type SettingsSection = (typeof sections)[number]["id"];
-
 export function SettingsPage() {
   const { t } = useTranslation();
   const settings = useApp((s) => s.settings);
@@ -44,7 +43,8 @@ export function SettingsPage() {
   const patch = useApp((s) => s.patchSettings);
   const showNotice = useApp((s) => s.showNotice);
   const [ledger, setLedger] = useState<TrustRecord[]>([]);
-  const [section, setSection] = useState<SettingsSection>("appearance");
+  const section = useApp((s) => s.settingsSection);
+  const setSection = (id: SettingsSection) => useApp.setState({ settingsSection: id });
   const { width, collapsed, dragging, onResizePointerDown } = useNavWidth(NAV_KEY);
 
   useEffect(() => {
@@ -248,23 +248,28 @@ export function SettingsPage() {
               <h2>{t("settings.updates")}</h2>
               <p className="hint">{t("settings.updatesHint")}</p>
               <SettingRow title={t("settings.autoStore")} description={t("settings.autoStoreHint")}>
-                <Switch
-                  checked={settings.autoUpdateStore}
-                  onChange={(v) => void commit("autoUpdateStore", v)}
-                  label={t("settings.autoStore")}
-                />
-              </SettingRow>
-              <SettingRow title={t("settings.autoPrograms")}>
                 <Segmented
-                  value={settings.autoUpdatePrograms}
-                  onChange={(v) => void commit("autoUpdatePrograms", v)}
+                  value={settings.storeUpdatePolicy || (settings.autoUpdateStore ? "startup" : "manual")}
+                  onChange={(v) => void commit("storeUpdatePolicy", v)}
                   options={[
-                    { id: "auto", label: t("settings.auto") },
-                    { id: "notify", label: t("settings.notify") },
-                    { id: "off", label: t("settings.off") },
+                    { id: "auto", label: t("settings.updateAuto") },
+                    { id: "startup", label: t("settings.updateStartup") },
+                    { id: "manual", label: t("settings.updateManual") },
                   ]}
                 />
               </SettingRow>
+              <SettingRow title={t("settings.autoPrograms")} description={t("settings.autoProgramsHint")}>
+                <Segmented
+                  value={settings.programUpdatePolicy || (settings.autoUpdatePrograms === "auto" ? "auto" : settings.autoUpdatePrograms === "off" ? "manual" : "startup")}
+                  onChange={(v) => void commit("programUpdatePolicy", v)}
+                  options={[
+                    { id: "auto", label: t("settings.updateAuto") },
+                    { id: "startup", label: t("settings.updateStartup") },
+                    { id: "manual", label: t("settings.updateManual") },
+                  ]}
+                />
+              </SettingRow>
+              <UpdateInbox />
             </section>
           )}
 

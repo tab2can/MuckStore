@@ -1,7 +1,7 @@
 use crate::helper::{self, HelperJob};
 use crate::models::{
-    AppPaths, CatalogProgram, InstallRequest, InstalledProgram, ProcessStatus, StoreSettings,
-    ThemePack, TrustRecord, UpdateInfo, VerifyReport,
+    AppPaths, CatalogProgram, InstallRequest, InstalledProgram, ProcessStatus, ProgramInstallOptions,
+    ProgramRelease, StoreSettings, ThemePack, TrustRecord, UpdateInfo, VerifyReport,
 };
 use crate::paths;
 use crate::settings;
@@ -29,8 +29,9 @@ pub fn save_store_settings(
     settings: StoreSettings,
 ) -> Result<(), String> {
     crate::settings::save_store_settings(&settings).map_err(|e| e.to_string())?;
-    let tray_on = settings.tray_enabled;
-    *state.settings.lock() = settings;
+    let saved = crate::settings::load_store_settings();
+    let tray_on = saved.tray_enabled;
+    *state.settings.lock() = saved;
     crate::apply_tray(&app, tray_on).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -209,8 +210,10 @@ pub async fn check_updates(state: State<'_, AppState>) -> Result<Vec<UpdateInfo>
     let mut items = crate::update::check_program_updates(token.as_deref(), proxy.as_deref())
         .await
         .map_err(|e| e.to_string())?;
-    if let Ok(store) = crate::update::check_store_update(token.as_deref(), proxy.as_deref()).await {
-        items.insert(0, store);
+    match crate::update::check_store_update(token.as_deref(), proxy.as_deref()).await {
+        Ok(store) => items.insert(0, store),
+        Err(e) if e.to_string().contains("rate-limited") => return Err(e.to_string()),
+        Err(_) => {}
     }
     Ok(items)
 }
@@ -220,6 +223,7 @@ pub async fn apply_program_update(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
+    version: Option<String>,
 ) -> Result<InstalledProgram, String> {
     let registry = settings::load_registry();
     let inst = registry
@@ -232,8 +236,72 @@ pub async fn apply_program_update(
         id: Some(id),
         trust_accepted: true,
         official: inst.official,
+        version,
     };
     install_program(app, state, request).await
+}
+
+#[tauri::command]
+pub async fn list_program_releases(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Vec<ProgramRelease>, String> {
+    let registry = settings::load_registry();
+    let inst = registry
+        .programs
+        .get(&id)
+        .ok_or_else(|| "not installed".to_string())?;
+    crate::catalog::list_releases(
+        &inst.source_github,
+        token(&state).as_deref(),
+        proxy(&state).as_deref(),
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_program_install_options(options: ProgramInstallOptions) -> Result<InstalledProgram, String> {
+    let mut registry = settings::load_registry();
+    let inst = registry
+        .programs
+        .get_mut(&options.id)
+        .ok_or_else(|| "not installed".to_string())?;
+    if options.autostart != inst.autostart {
+        if options.autostart && !inst.manifest.permissions.iter().any(|p| p == "autostart") {
+            return Err("program did not declare the autostart permission".into());
+        }
+        let entry = PathBuf::from(&inst.install_path).join(&inst.manifest.entry);
+        helper::run_or_elevate(
+            HelperJob {
+                action: if options.autostart {
+                    "autostart".into()
+                } else {
+                    "removeAutostart".into()
+                },
+                path: None,
+                target: Some(entry.to_string_lossy().into()),
+                args: None,
+                name: Some(format!("MuckStore_{}", options.id)),
+                working_dir: Some(inst.install_path.clone()),
+                expected_sha256: None,
+            },
+            false,
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    inst.pinned_version = options.pinned_version.filter(|v| !v.is_empty());
+    inst.launch_args = options.launch_args;
+    inst.update_channel = if options.update_channel == "pre" {
+        "pre".into()
+    } else {
+        "stable".into()
+    };
+    inst.autostart = options.autostart;
+    inst.enabled = options.enabled;
+    let saved = inst.clone();
+    settings::save_registry(&registry).map_err(|e| e.to_string())?;
+    Ok(saved)
 }
 
 #[tauri::command]

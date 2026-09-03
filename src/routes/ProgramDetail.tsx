@@ -26,6 +26,7 @@ export function ProgramDetail() {
   const discovered = useApp((s) => s.discovered);
   const installed = useApp((s) => s.installed);
   const refresh = useApp((s) => s.refreshInstalled);
+  const openProgramSettings = useApp((s) => s.openProgramSettings);
   const [remote, setRemote] = useState<CatalogProgram | null>(null);
   const [trust, setTrust] = useState(false);
   const [report, setReport] = useState<VerifyReport | null>(null);
@@ -268,6 +269,13 @@ export function ProgramDetail() {
                       {starting ? t("installed.starting") : t("installed.run")}
                     </button>
                   )}
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => openProgramSettings(inst.id)}
+                  >
+                    {t("detail.settings")}
+                  </button>
                   <button
                     className="btn danger"
                     type="button"

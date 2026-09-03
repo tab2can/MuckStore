@@ -30,6 +30,7 @@ export function LibraryRow({
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const refresh = useApp((s) => s.refreshInstalled);
+  const openProgramSettings = useApp((s) => s.openProgramSettings);
   const settings = useApp((s) => s.settings);
   const motion = motionEnabled(settings);
   const [menu, setMenu] = useState(false);
@@ -105,7 +106,17 @@ export function LibraryRow({
               >
                 {t("library.open")}
               </button>
-              {update?.available && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenu(false);
+                  openProgramSettings(program.id);
+                }}
+              >
+                {t("library.settings")}
+              </button>
+              {update?.available && !update.pinned && (
                 <button
                   type="button"
                   role="menuitem"
