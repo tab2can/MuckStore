@@ -18,11 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/hero-loop.svg" width="920" alt="Catalog cards appearing in the Muck Store window"/>
-</p>
-
-<p align="center">
-  <img src="docs/assets/readme-hero.png" width="920" alt="Muck Store home — catalog of programs"/>
+  <img src="docs/assets/home.gif" width="920" alt="Muck Store home — catalog carousels and program grid"/>
 </p>
 
 ---
@@ -42,10 +38,6 @@ You publish a normal Windows program. The store:
 7. Checks for updates on a schedule the user chose
 
 A zip dropped onto Releases by hand is **not** enough. Release files must be built and attested by GitHub Actions **in that same repository**.
-
-<p align="center">
-  <img src="docs/assets/pipeline.svg" width="920" alt="Discover, verify, install, run"/>
-</p>
 
 | You ship | The store does |
 | --- | --- |
@@ -69,7 +61,7 @@ Home surfaces official samples and community programs: stars, language, screensh
 Official catalog programs are copied from this checkout. Community programs show a verify report (public repo, SPDX license, asset hashes, Actions provenance). You approve; the ledger is `%APPDATA%\MuckStore\trust.json`. A new version or commit asks again. Defender still scans. The store never silently adds an exclusion.
 
 <p align="center">
-  <img src="docs/assets/readme-trust.png" width="920" alt="Approve this program dialog"/>
+  <img src="docs/assets/trust.gif" width="920" alt="Untrusted Demo page and Approve this program dialog"/>
 </p>
 
 ### Library that actually runs things
@@ -77,7 +69,7 @@ Official catalog programs are copied from this checkout. Community programs show
 Start and stop from the store. Logs go to `%LOCALAPPDATA%\MuckStore\logs\{id}.log`. Program Settings (not a hidden schema form) cover version lock, GitHub release picker, launch arguments (`-test`), stable/preview channel, enabled, autostart, and the install folder.
 
 <p align="center">
-  <img src="docs/assets/readme-library.png" width="920" alt="Library with installed programs"/>
+  <img src="docs/assets/library.gif" width="920" alt="Library, more menu, and program settings"/>
 </p>
 
 ### Updates on your terms
@@ -89,7 +81,7 @@ Two policies, not a single toggle: **store app** and **installed programs**, eac
 - **Update all** applies the store updater and unlocked programs. New catalog items are informational only.
 
 <p align="center">
-  <img src="docs/assets/readme-updates.png" width="920" alt="Settings → Updates policies and inbox"/>
+  <img src="docs/assets/updates.gif" width="920" alt="Settings appearance and Updates policies"/>
 </p>
 
 ### Themes without code
