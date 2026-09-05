@@ -238,23 +238,78 @@ fn prepare_setup(archive: &Path, temp: &Path) -> Result<PathBuf, String> {
 
 fn start_installer(setup: &Path) -> Result<(), String> {
     let store = store_exe().ok_or_else(|| "Muck Store.exe was not found".to_string())?;
-    let ping_then = format!(
-        "ping -n 3 127.0.0.1 >nul & \"{setup}\" /S & start \"\" \"{store}\" --from-updater",
-        setup = setup.display(),
-        store = store.display()
+    let dir = setup.parent().unwrap_or(Path::new("."));
+    let script = dir.join("apply-update.ps1");
+    let nsis_args = nsis_silent_args(&store);
+    let elevate = needs_admin_install(&store);
+    let body = format!(
+        "$ErrorActionPreference = 'SilentlyContinue'\r\n\
+Wait-Process -Id {pid} -Timeout 90 -ErrorAction SilentlyContinue\r\n\
+Start-Sleep -Milliseconds 600\r\n\
+taskkill /F /IM 'Muck Store.exe' /T | Out-Null\r\n\
+taskkill /F /IM muck-store.exe /T | Out-Null\r\n\
+Start-Sleep -Milliseconds 400\r\n\
+$setup = {setup}\r\n\
+$store = {store}\r\n\
+$arg = {args}\r\n\
+if ({elevate}) {{\r\n\
+  $p = Start-Process -FilePath $setup -ArgumentList $arg -Verb RunAs -Wait -PassThru\r\n\
+}} else {{\r\n\
+  $p = Start-Process -FilePath $setup -ArgumentList $arg -Wait -PassThru\r\n\
+}}\r\n\
+Start-Sleep -Milliseconds 400\r\n\
+if (Test-Path -LiteralPath $store) {{\r\n\
+  Start-Process -FilePath $store -ArgumentList '--from-updater'\r\n\
+}}\r\n",
+        pid = std::process::id(),
+        setup = ps_lit(&setup.to_string_lossy()),
+        store = ps_lit(&store.to_string_lossy()),
+        args = ps_lit(nsis_args),
+        elevate = if elevate { "$true" } else { "$false" },
     );
-    let mut cmd = Command::new("cmd");
-    cmd.args(["/C", &ping_then])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+    fs::write(&script, body).map_err(|e| e.to_string())?;
+
+    let mut cmd = Command::new("powershell");
+    cmd.args([
+        "-NoProfile",
+        "-STA",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-WindowStyle",
+        "Hidden",
+        "-File",
+    ])
+    .arg(&script)
+    .stdin(Stdio::null())
+    .stdout(Stdio::null())
+    .stderr(Stdio::null());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000 | 0x00000200 | 0x00000008);
+        // CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB
+        // Do not combine CREATE_NO_WINDOW with DETACHED_PROCESS — Windows ignores
+        // NO_WINDOW and ping/cmd then flash a console.
+        cmd.creation_flags(0x0800_0000 | 0x0000_0200 | 0x0100_0000);
     }
     cmd.spawn().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+fn nsis_silent_args(store: &Path) -> &'static str {
+    if needs_admin_install(store) {
+        "/S /allusers"
+    } else {
+        "/S /currentuser"
+    }
+}
+
+fn needs_admin_install(store: &Path) -> bool {
+    let p = store.to_string_lossy().to_ascii_lowercase();
+    p.contains("\\program files\\") || p.contains("\\program files (x86)\\")
+}
+
+fn ps_lit(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
 }
 
 fn store_exe() -> Option<PathBuf> {

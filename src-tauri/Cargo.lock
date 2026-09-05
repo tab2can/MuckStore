@@ -2229,7 +2229,7 @@ dependencies = [
 
 [[package]]
 name = "muck-store"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2263,7 +2263,7 @@ dependencies = [
 
 [[package]]
 name = "muck-updater"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "dirs 6.0.0",
  "reqwest 0.12.28",
