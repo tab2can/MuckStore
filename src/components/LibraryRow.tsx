@@ -83,6 +83,26 @@ export function LibraryRow({
             {starting ? t("installed.starting") : t("installed.run")}
           </button>
         )}
+        {update?.available && !update.pinned && (
+          <button
+            className="btn sm"
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await api.applyUpdate(program.id);
+                await refresh();
+                const list = await api.updates();
+                useApp.setState({ updates: list });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {t("updates.apply")}
+          </button>
+        )}
         <div className={`library-more${menu ? " open" : ""}`} ref={root}>
           <button
             className="btn sm ghost library-more-btn"
@@ -116,27 +136,6 @@ export function LibraryRow({
               >
                 {t("library.settings")}
               </button>
-              {update?.available && !update.pinned && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      await api.applyUpdate(program.id);
-                      await refresh();
-                      const list = await api.updates();
-                      useApp.setState({ updates: list });
-                    } finally {
-                      setBusy(false);
-                      setMenu(false);
-                    }
-                  }}
-                >
-                  {t("updates.apply")}
-                </button>
-              )}
               <button
                 type="button"
                 role="menuitem"

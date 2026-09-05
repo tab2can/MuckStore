@@ -562,7 +562,7 @@ a.card:hover { color: inherit; }
 .library-cols,
 .library-row {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 7.5rem 7.5rem 6.75rem 9.5rem;
+  grid-template-columns: 40px minmax(0, 1fr) 7.5rem 7.5rem 6.75rem max-content;
   column-gap: 12px;
   align-items: center;
   width: 100%;
@@ -2012,7 +2012,7 @@ a.spotlight-slide:hover { color: inherit; }
   .studio-mini-side { border-right: 0; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; }
   .studio-mini-nav.bottom { margin-top: 0; }
   .library-cols, .library-row {
-    grid-template-columns: 40px minmax(0, 1fr) 9.5rem;
+    grid-template-columns: 40px minmax(0, 1fr) max-content;
   }
   .library-cols span:nth-child(3),
   .library-cols span:nth-child(4),

@@ -1,9 +1,10 @@
 use crate::models::{InstalledProgram, ProcessStatus};
 use crate::paths;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -15,8 +16,14 @@ const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 #[cfg(windows)]
 const DETACHED_PROCESS: u32 = 0x0000_0008;
 
+const SUCCESSOR_GRACE: Duration = Duration::from_secs(4);
+
 pub struct Running {
-    pub child: Child,
+    pub child: Option<Child>,
+    pub spawn_pid: u32,
+    pub ancestors: HashSet<u32>,
+    pub seen_live: bool,
+    pub waiting_since: Option<Instant>,
     pub restarts: u32,
 }
 
@@ -35,62 +42,153 @@ pub fn launch_cmd_path(id: &str) -> PathBuf {
 
 impl ProcessManager {
     pub fn running_pid(&mut self, program: &InstalledProgram) -> Option<u32> {
-        if let Some(pid) = self.tracked_alive(&program.id) {
-            return Some(pid);
-        }
-        crate::procsnap::pids_for_program(program).into_iter().next()
+        self.refresh_live(&program.id, Some(program)).into_iter().next()
     }
 
-    fn tracked_alive(&mut self, id: &str) -> Option<u32> {
-        let running = self.children.get_mut(id)?;
-        match running.child.try_wait() {
-            Ok(None) => Some(running.child.id()),
+    fn reap_child(running: &mut Running) {
+        let Some(child) = running.child.as_mut() else {
+            return;
+        };
+        match child.try_wait() {
+            Ok(None) => {}
             Ok(Some(_)) | Err(_) => {
-                self.children.remove(id);
-                None
+                running.child = None;
             }
         }
     }
 
-    pub fn adopt(&mut self, id: String, child: Option<Child>, isolation: bool) {
-        if isolation {
-            if let Some(ref child) = child {
+    fn refresh_live(&mut self, id: &str, program: Option<&InstalledProgram>) -> Vec<u32> {
+        let Some(running) = self.children.get_mut(id) else {
+            return program
+                .map(crate::procsnap::pids_for_program)
+                .unwrap_or_default();
+        };
+        Self::reap_child(running);
+        let mut live = if let Some(program) = program {
+            let ancestors: Vec<u32> = running.ancestors.iter().copied().collect();
+            crate::procsnap::pids_for_program_from(program, &ancestors)
+        } else {
+            Vec::new()
+        };
+        if let Some(child) = running.child.as_ref() {
+            let pid = child.id();
+            if !live.contains(&pid) {
+                live.push(pid);
+            }
+        }
+        running.ancestors.extend(live.iter().copied());
+        let has_successor = live.iter().any(|pid| *pid != running.spawn_pid);
+        if live.is_empty() {
+            if running.child.is_none() && running.waiting_since.is_none() {
+                running.waiting_since = Some(Instant::now());
+            }
+        } else {
+            if has_successor {
+                running.seen_live = true;
+            }
+            running.waiting_since = None;
+        }
+        live
+    }
+
+    fn session_finished(&self, id: &str, live: &[u32]) -> bool {
+        if !live.is_empty() {
+            return false;
+        }
+        let Some(running) = self.children.get(id) else {
+            return true;
+        };
+        if running.child.is_some() {
+            return false;
+        }
+        if running.seen_live {
+            return true;
+        }
+        running
+            .waiting_since
+            .map(|at| at.elapsed() >= SUCCESSOR_GRACE)
+            .unwrap_or(true)
+    }
+
+    pub fn adopt(&mut self, id: String, child: Option<Child>, pid: u32, isolation: bool) {
+        let mut ancestors = HashSet::new();
+        if pid != 0 {
+            ancestors.insert(pid);
+        }
+        if let Some(ref child) = child {
+            ancestors.insert(child.id());
+            if isolation {
                 attach_job(child.id());
             }
+        } else if isolation && pid != 0 {
+            attach_job(pid);
         }
-        if let Some(child) = child {
-            self.children.insert(id, Running { child, restarts: 0 });
+        if child.is_none() && pid == 0 {
+            return;
         }
+        let spawn_pid = if pid != 0 {
+            pid
+        } else {
+            child.as_ref().map(|c| c.id()).unwrap_or(0)
+        };
+        self.children.insert(
+            id,
+            Running {
+                child,
+                spawn_pid,
+                ancestors,
+                seen_live: false,
+                waiting_since: None,
+                restarts: 0,
+            },
+        );
     }
 
     pub fn stop(&mut self, id: &str) -> anyhow::Result<()> {
+        let inst = crate::settings::load_registry().programs.get(id).cloned();
+        let mut pids = self.refresh_live(id, inst.as_ref());
         if let Some(mut running) = self.children.remove(id) {
-            let _ = running.child.kill();
-            let _ = running.child.wait();
+            if let Some(mut child) = running.child.take() {
+                pids.push(child.id());
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            pids.extend(running.ancestors.iter().copied());
         }
-        if let Some(inst) = crate::settings::load_registry().programs.get(id).cloned() {
-            let pids = crate::procsnap::pids_for_program(&inst);
-            crate::procsnap::kill_pids(&pids);
+        if let Some(inst) = inst.as_ref() {
+            pids.extend(crate::procsnap::pids_for_program_from(inst, &pids));
         }
+        pids.sort_unstable();
+        pids.dedup();
+        crate::procsnap::kill_pids(&pids);
         Ok(())
     }
 
     pub fn status(&mut self, id: &str) -> ProcessStatus {
-        if let Some(pid) = self.tracked_alive(id) {
+        let inst = crate::settings::load_registry().programs.get(id).cloned();
+        let live = self.refresh_live(id, inst.as_ref());
+        if let Some(pid) = live.first().copied() {
             return ProcessStatus {
                 id: id.into(),
                 running: true,
                 pid: Some(pid),
             };
         }
-        if let Some(inst) = crate::settings::load_registry().programs.get(id) {
-            if let Some(pid) = crate::procsnap::pids_for_program(inst).into_iter().next() {
-                return ProcessStatus {
-                    id: id.into(),
-                    running: true,
-                    pid: Some(pid),
-                };
-            }
+        let waiting_for_successor = self.children.get(id).is_some_and(|r| {
+            r.child.is_none()
+                && !r.seen_live
+                && r.waiting_since
+                    .is_some_and(|at| at.elapsed() < SUCCESSOR_GRACE)
+        });
+        if waiting_for_successor {
+            return ProcessStatus {
+                id: id.into(),
+                running: true,
+                pid: None,
+            };
+        }
+        if self.children.contains_key(id) && self.session_finished(id, &live) {
+            self.children.remove(id);
         }
         ProcessStatus {
             id: id.into(),
@@ -100,17 +198,16 @@ impl ProcessManager {
     }
 
     pub fn poll_exits(&mut self) -> Vec<String> {
-        let mut exited = Vec::new();
         let ids: Vec<String> = self.children.keys().cloned().collect();
+        let registry = crate::settings::load_registry();
+        let mut exited = Vec::new();
         for id in ids {
-            if let Some(r) = self.children.get_mut(&id) {
-                if let Ok(Some(_)) = r.child.try_wait() {
-                    exited.push(id);
-                }
+            let inst = registry.programs.get(&id).cloned();
+            let live = self.refresh_live(&id, inst.as_ref());
+            if self.session_finished(&id, &live) {
+                self.children.remove(&id);
+                exited.push(id);
             }
-        }
-        for id in &exited {
-            self.children.remove(id);
         }
         exited
     }

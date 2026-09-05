@@ -1,24 +1,5 @@
 {
   "version": 1,
   "maintainers": ["muckstore"],
-  "programs": [
-    {
-      "id": "com.muckstore.quick-notes",
-      "official": true,
-      "featured": true,
-      "localResource": "programs/official/quick-notes",
-      "stars": 128,
-      "forks": 14,
-      "language": "PowerShell"
-    },
-    {
-      "id": "com.muckstore.settings-gallery",
-      "official": true,
-      "featured": false,
-      "localResource": "programs/official/settings-gallery",
-      "stars": 41,
-      "forks": 6,
-      "language": "PowerShell"
-    }
-  ]
+  "programs": []
 }

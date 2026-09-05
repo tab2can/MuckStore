@@ -194,7 +194,7 @@ pub async fn start_program(state: State<'_, AppState>, id: String) -> Result<u32
     }
     let isolation = state.settings.lock().isolation_job_object;
     let (child, pid) = crate::process::spawn_program(&inst, isolation).map_err(|e| e.to_string())?;
-    state.processes.lock().adopt(id, child, isolation);
+    state.processes.lock().adopt(id, child, pid, isolation);
     Ok(pid)
 }
 

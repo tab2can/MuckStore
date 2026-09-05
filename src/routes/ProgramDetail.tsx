@@ -34,7 +34,6 @@ export function ProgramDetail() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const [starting, setStarting] = useState(false);
 
   const program = useMemo(() => {
     const base =
@@ -263,29 +262,9 @@ export function ProgramDetail() {
             <div className="repo-actions">
               {inst ? (
                 <>
-                  {running ? (
+                  {running && (
                     <button className="btn" type="button" onClick={() => void api.stop(id).then(() => setRunning(false))}>
                       {t("installed.stop")}
-                    </button>
-                  ) : (
-                    <button
-                      className="btn primary"
-                      type="button"
-                      disabled={starting}
-                      onClick={async () => {
-                        setStarting(true);
-                        setError(null);
-                        try {
-                          await api.start(id);
-                          setRunning(true);
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : String(e));
-                        } finally {
-                          setStarting(false);
-                        }
-                      }}
-                    >
-                      {starting ? t("installed.starting") : t("installed.run")}
                     </button>
                   )}
                   <button
