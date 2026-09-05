@@ -31,6 +31,8 @@ pub fn run_job(job_path: &Path) -> anyhow::Result<()> {
         "installNsis" => install_nsis(&job),
         "installInno" => install_inno(&job),
         "runPostinstall" => run_postinstall(&job),
+        "registerElevatedLaunch" => register_elevated_launch(&job),
+        "removeElevatedLaunch" => remove_elevated_launch(&job),
         other => anyhow::bail!("unknown helper action: {other}"),
     }
 }
@@ -182,6 +184,44 @@ fn run_postinstall(job: &HelperJob) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn register_elevated_launch(job: &HelperJob) -> anyhow::Result<()> {
+    let name = job.name.as_deref().ok_or_else(|| anyhow::anyhow!("name required"))?;
+    let cmd = job.path.as_deref().ok_or_else(|| anyhow::anyhow!("launch script required"))?;
+    let work = job.working_dir.as_deref().unwrap_or(".");
+    let script = format!(
+        "$ErrorActionPreference = 'Stop'; $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument {} -WorkingDirectory {}; $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest; $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances Parallel; Register-ScheduledTask -TaskName {} -Action $action -Principal $principal -Settings $settings -Force | Out-Null",
+        ps_quote(&format!("/C {}", quote_for_cmd(cmd))),
+        ps_quote(work),
+        ps_quote(name),
+    );
+    let status = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("could not save the administrator launch task");
+    }
+    Ok(())
+}
+
+fn remove_elevated_launch(job: &HelperJob) -> anyhow::Result<()> {
+    let name = job.name.as_deref().ok_or_else(|| anyhow::anyhow!("name required"))?;
+    let script = format!(
+        "Unregister-ScheduledTask -TaskName {} -Confirm:$false -ErrorAction SilentlyContinue",
+        ps_quote(name)
+    );
+    let status = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("could not remove the administrator launch task");
+    }
+    Ok(())
+}
+
+fn quote_for_cmd(value: &str) -> String {
+    format!("\"{}\"", value.replace('"', "\"\""))
+}
+
 fn verify_hash(path: &str, expected: Option<&str>) -> anyhow::Result<()> {
     let Some(expected) = expected else {
         anyhow::bail!("helper refuses to run an unsigned payload without sha256");
@@ -228,6 +268,6 @@ pub fn run_or_elevate(job: HelperJob, needs_admin: bool) -> anyhow::Result<()> {
     }
 }
 
-fn ps_quote(value: &str) -> String {
+pub fn ps_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }

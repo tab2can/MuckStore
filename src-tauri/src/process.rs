@@ -25,61 +25,42 @@ pub struct ProcessManager {
     pub children: HashMap<String, Running>,
 }
 
+pub fn elevated_task_name(id: &str) -> String {
+    format!("MuckStore_elev_{id}")
+}
+
+pub fn launch_cmd_path(id: &str) -> PathBuf {
+    paths::cache_dir().join("launch").join(format!("{id}.cmd"))
+}
+
 impl ProcessManager {
-    pub fn start(&mut self, program: &InstalledProgram, isolation: bool) -> anyhow::Result<u32> {
-        if let Some(running) = self.children.get_mut(&program.id) {
-            if running.child.try_wait()?.is_none() {
-                return Ok(running.child.id());
+    pub fn running_pid(&mut self, program: &InstalledProgram) -> Option<u32> {
+        if let Some(pid) = self.tracked_alive(&program.id) {
+            return Some(pid);
+        }
+        crate::procsnap::pids_for_program(program).into_iter().next()
+    }
+
+    fn tracked_alive(&mut self, id: &str) -> Option<u32> {
+        let running = self.children.get_mut(id)?;
+        match running.child.try_wait() {
+            Ok(None) => Some(running.child.id()),
+            Ok(Some(_)) | Err(_) => {
+                self.children.remove(id);
+                None
             }
         }
-        let dir = PathBuf::from(&program.install_path);
-        let entry = dir.join(&program.manifest.entry);
-        if !entry.exists() {
-            anyhow::bail!("entry not found: {}", entry.display());
-        }
-        let log_path = paths::logs_dir().join(format!("{}.log", program.id));
-        std::fs::create_dir_all(paths::logs_dir())?;
-        let log = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_path)?;
-        let err = log.try_clone()?;
-        let mut cmd = command_for_entry(&entry, &dir)?;
-        for arg in split_launch_args(&program.launch_args) {
-            cmd.arg(arg);
-        }
-        cmd.current_dir(&dir)
-            .env("MUCK_PROGRAM_DIR", &program.install_path)
-            .env("MUCK_PROGRAM_ID", &program.id)
-            .env(
-                "MUCK_SETTINGS_PATH",
-                paths::program_settings_path(&program.id),
-            )
-            .stdin(Stdio::null())
-            .stdout(Stdio::from(log))
-            .stderr(Stdio::from(err));
-        #[cfg(windows)]
-        {
-            let flags = if is_gui_script(&entry) {
-                CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
-            } else {
-                CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
-            };
-            cmd.creation_flags(flags);
-        }
-        let child = cmd.spawn()?;
-        let pid = child.id();
+    }
+
+    pub fn adopt(&mut self, id: String, child: Option<Child>, isolation: bool) {
         if isolation {
-            attach_job(pid);
+            if let Some(ref child) = child {
+                attach_job(child.id());
+            }
         }
-        self.children.insert(
-            program.id.clone(),
-            Running {
-                child,
-                restarts: 0,
-            },
-        );
-        Ok(pid)
+        if let Some(child) = child {
+            self.children.insert(id, Running { child, restarts: 0 });
+        }
     }
 
     pub fn stop(&mut self, id: &str) -> anyhow::Result<()> {
@@ -87,36 +68,34 @@ impl ProcessManager {
             let _ = running.child.kill();
             let _ = running.child.wait();
         }
+        if let Some(inst) = crate::settings::load_registry().programs.get(id).cloned() {
+            let pids = crate::procsnap::pids_for_program(&inst);
+            crate::procsnap::kill_pids(&pids);
+        }
         Ok(())
     }
 
     pub fn status(&mut self, id: &str) -> ProcessStatus {
-        let running = match self.children.get_mut(id) {
-            Some(r) => r,
-            None => {
-                return ProcessStatus {
-                    id: id.into(),
-                    running: false,
-                    pid: None,
-                }
-            }
-        };
-        match running.child.try_wait() {
-            Ok(Some(_)) => ProcessStatus {
-                id: id.into(),
-                running: false,
-                pid: None,
-            },
-            Ok(None) => ProcessStatus {
+        if let Some(pid) = self.tracked_alive(id) {
+            return ProcessStatus {
                 id: id.into(),
                 running: true,
-                pid: Some(running.child.id()),
-            },
-            Err(_) => ProcessStatus {
-                id: id.into(),
-                running: false,
-                pid: None,
-            },
+                pid: Some(pid),
+            };
+        }
+        if let Some(inst) = crate::settings::load_registry().programs.get(id) {
+            if let Some(pid) = crate::procsnap::pids_for_program(inst).into_iter().next() {
+                return ProcessStatus {
+                    id: id.into(),
+                    running: true,
+                    pid: Some(pid),
+                };
+            }
+        }
+        ProcessStatus {
+            id: id.into(),
+            running: false,
+            pid: None,
         }
     }
 
@@ -137,7 +116,210 @@ impl ProcessManager {
     }
 }
 
-fn command_for_entry(entry: &std::path::Path, install_dir: &PathBuf) -> anyhow::Result<Command> {
+pub fn spawn_program(program: &InstalledProgram, isolation: bool) -> anyhow::Result<(Option<Child>, u32)> {
+    if let Some(pid) = crate::procsnap::pids_for_program(program).into_iter().next() {
+        return Ok((None, pid));
+    }
+    let dir = PathBuf::from(&program.install_path);
+    let entry = dir.join(&program.manifest.entry);
+    if !entry.exists() {
+        anyhow::bail!("entry not found: {}", entry.display());
+    }
+    write_launch_cmd(program)?;
+    let needs_admin = program.manifest.needs_admin();
+    if program.remember_elevation && elevated_task_registered(&program.id) {
+        start_elevated_task(&program.id)?;
+        let pid = wait_for_pid(program).unwrap_or(0);
+        return Ok((None, pid));
+    }
+    if !needs_admin {
+        match spawn_unelevated(program, isolation) {
+            Ok(child) => {
+                let pid = child.id();
+                return Ok((Some(child), pid));
+            }
+            Err(err) if is_elevation_required(&err) => {}
+            Err(err) => return Err(err.into()),
+        }
+    }
+    if program.remember_elevation {
+        register_elevated_task(program)?;
+        start_elevated_task(&program.id)?;
+        let pid = wait_for_pid(program).unwrap_or(0);
+        return Ok((None, pid));
+    }
+    let pid = start_with_uac(program)?;
+    Ok((None, pid))
+}
+
+fn spawn_unelevated(program: &InstalledProgram, isolation: bool) -> std::io::Result<Child> {
+    let dir = PathBuf::from(&program.install_path);
+    let entry = dir.join(&program.manifest.entry);
+    let log_path = paths::logs_dir().join(format!("{}.log", program.id));
+    std::fs::create_dir_all(paths::logs_dir())?;
+    let log = OpenOptions::new().create(true).append(true).open(&log_path)?;
+    let err = log.try_clone()?;
+    let mut cmd = command_for_entry(&entry, &dir).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    for arg in split_launch_args(&program.launch_args) {
+        cmd.arg(arg);
+    }
+    cmd.current_dir(&dir)
+        .env("MUCK_PROGRAM_DIR", &program.install_path)
+        .env("MUCK_PROGRAM_ID", &program.id)
+        .env(
+            "MUCK_SETTINGS_PATH",
+            paths::program_settings_path(&program.id),
+        )
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(log))
+        .stderr(Stdio::from(err));
+    #[cfg(windows)]
+    {
+        let flags = if is_gui_script(&entry) {
+            CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
+        } else {
+            CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
+        };
+        cmd.creation_flags(flags);
+    }
+    let child = cmd.spawn()?;
+    if isolation {
+        attach_job(child.id());
+    }
+    Ok(child)
+}
+
+fn is_elevation_required(err: &std::io::Error) -> bool {
+    err.raw_os_error() == Some(740)
+}
+
+fn write_launch_cmd(program: &InstalledProgram) -> anyhow::Result<PathBuf> {
+    let dir = PathBuf::from(&program.install_path);
+    let entry = dir.join(&program.manifest.entry);
+    let log = paths::logs_dir().join(format!("{}.log", program.id));
+    std::fs::create_dir_all(paths::logs_dir())?;
+    let path = launch_cmd_path(&program.id);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let extra = split_launch_args(&program.launch_args)
+        .into_iter()
+        .map(|a| format!("\"{}\"", a.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let run = launch_line(&entry, &dir, &extra)?;
+    let settings = paths::program_settings_path(&program.id);
+    let body = format!(
+        "@echo off\r\nset \"MUCK_PROGRAM_DIR={dir}\"\r\nset \"MUCK_PROGRAM_ID={id}\"\r\nset \"MUCK_SETTINGS_PATH={settings}\"\r\ncd /d \"{dir}\"\r\n{run} >> \"{log}\" 2>&1\r\n",
+        dir = dir.display(),
+        id = program.id,
+        settings = settings.display(),
+        run = run,
+        log = log.display(),
+    );
+    std::fs::write(&path, body)?;
+    Ok(path)
+}
+
+fn launch_line(entry: &std::path::Path, install_dir: &PathBuf, extra: &str) -> anyhow::Result<String> {
+    let (exe, args) = invocation(entry, install_dir)?;
+    let mut parts = vec![format!("\"{}\"", exe.display())];
+    for arg in args {
+        parts.push(format!("\"{}\"", arg.replace('"', "\"\"")));
+    }
+    if !extra.is_empty() {
+        parts.push(extra.to_string());
+    }
+    Ok(parts.join(" "))
+}
+
+fn start_with_uac(program: &InstalledProgram) -> anyhow::Result<u32> {
+    let cmd = write_launch_cmd(program)?;
+    let script = format!(
+        "$ErrorActionPreference = 'Stop'; $p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/C', {}) -WorkingDirectory {} -Verb RunAs -PassThru; if (-not $p) {{ exit 1 }}; Write-Output $p.Id",
+        crate::helper::ps_quote(&cmd.to_string_lossy()),
+        crate::helper::ps_quote(&program.install_path),
+    );
+    let mut command = Command::new("powershell");
+    command.args(["-NoProfile", "-STA", "-Command", &script]);
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let output = command.output()?;
+    if !output.status.success() {
+        anyhow::bail!("administrator approval was cancelled or the program failed to start");
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if let Some(pid) = stdout.lines().rev().find_map(|l| l.trim().parse::<u32>().ok()) {
+        return Ok(pid);
+    }
+    Ok(wait_for_pid(program).unwrap_or(0))
+}
+
+fn register_elevated_task(program: &InstalledProgram) -> anyhow::Result<()> {
+    let cmd = write_launch_cmd(program)?;
+    crate::helper::run_or_elevate(
+        crate::helper::HelperJob {
+            action: "registerElevatedLaunch".into(),
+            path: Some(cmd.to_string_lossy().into()),
+            target: None,
+            args: None,
+            name: Some(elevated_task_name(&program.id)),
+            working_dir: Some(program.install_path.clone()),
+            expected_sha256: None,
+        },
+        true,
+    )
+}
+
+fn start_elevated_task(id: &str) -> anyhow::Result<()> {
+    let mut command = Command::new("schtasks");
+    command.args(["/Run", "/TN", &elevated_task_name(id)]);
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let status = command.status()?;
+    if !status.success() {
+        anyhow::bail!("could not start the saved administrator task");
+    }
+    Ok(())
+}
+
+pub fn elevated_task_registered(id: &str) -> bool {
+    let mut command = Command::new("schtasks");
+    command.args(["/Query", "/TN", &elevated_task_name(id)]);
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    command.status().map(|s| s.success()).unwrap_or(false)
+}
+
+pub fn remove_elevated_task(id: &str) {
+    if !elevated_task_registered(id) {
+        return;
+    }
+    let job = crate::helper::HelperJob {
+        action: "removeElevatedLaunch".into(),
+        path: None,
+        target: None,
+        args: None,
+        name: Some(elevated_task_name(id)),
+        working_dir: None,
+        expected_sha256: None,
+    };
+    if crate::helper::run_or_elevate(job.clone(), false).is_err() {
+        let _ = crate::helper::run_or_elevate(job, true);
+    }
+}
+
+fn wait_for_pid(program: &InstalledProgram) -> Option<u32> {
+    for _ in 0..20 {
+        if let Some(pid) = crate::procsnap::pids_for_program(program).into_iter().next() {
+            return Some(pid);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    None
+}
+
+fn invocation(entry: &std::path::Path, install_dir: &PathBuf) -> anyhow::Result<(PathBuf, Vec<String>)> {
     let ext = entry
         .extension()
         .and_then(|e| e.to_str())
@@ -154,37 +336,33 @@ fn command_for_entry(entry: &std::path::Path, install_dir: &PathBuf) -> anyhow::
         .find(|r| r.id == "node")
         .map(|r| r.bin.clone())
         .unwrap_or_else(|| PathBuf::from("node"));
-    let mut cmd = match ext.as_str() {
-        "ps1" => {
-            let mut c = Command::new("powershell");
-            c.args([
-                "-STA",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-            ]);
-            c.arg(entry);
-            c
-        }
-        "py" => {
-            let mut c = Command::new(python);
-            c.arg(entry);
-            c
-        }
-        "js" | "mjs" | "cjs" => {
-            let mut c = Command::new(node);
-            c.arg(entry);
-            c
-        }
-        "cmd" | "bat" => {
-            let mut c = Command::new("cmd");
-            c.args(["/C"]);
-            c.arg(entry);
-            c
-        }
-        _ => Command::new(entry),
-    };
+    Ok(match ext.as_str() {
+        "ps1" => (
+            PathBuf::from("powershell"),
+            vec![
+                "-STA".into(),
+                "-NoProfile".into(),
+                "-ExecutionPolicy".into(),
+                "Bypass".into(),
+                "-File".into(),
+                entry.to_string_lossy().into_owned(),
+            ],
+        ),
+        "py" => (python, vec![entry.to_string_lossy().into_owned()]),
+        "js" | "mjs" | "cjs" => (node, vec![entry.to_string_lossy().into_owned()]),
+        "cmd" | "bat" => (
+            PathBuf::from("cmd"),
+            vec!["/C".into(), entry.to_string_lossy().into_owned()],
+        ),
+        _ => (entry.to_path_buf(), Vec::new()),
+    })
+}
+
+fn command_for_entry(entry: &std::path::Path, install_dir: &PathBuf) -> anyhow::Result<Command> {
+    let runtimes = crate::runtime::load_resolved(install_dir);
+    let (exe, args) = invocation(entry, install_dir)?;
+    let mut cmd = Command::new(exe);
+    cmd.args(args);
     if let Some(extra) = runtimes.iter().find_map(|r| r.extra_path.as_ref()) {
         if let Some(path) = std::env::var_os("PATH") {
             let mut paths = vec![extra.clone()];

@@ -173,6 +173,7 @@ pub async fn install(
             .as_ref()
             .map(|p| p.launch_args.clone())
             .unwrap_or_default(),
+        remember_elevation: prev.as_ref().map(|p| p.remember_elevation).unwrap_or(false),
         installed_at,
         updated_at,
         manifest,
@@ -455,6 +456,7 @@ pub fn uninstall(id: &str, wipe_config: bool) -> anyhow::Result<()> {
         },
         false,
     );
+    crate::process::remove_elevated_task(id);
     settings::save_registry(&registry)?;
     Ok(())
 }
@@ -528,6 +530,7 @@ pub fn sideload(app: &AppHandle, folder: &Path, developer_mode: bool) -> anyhow:
             .as_ref()
             .map(|p| p.launch_args.clone())
             .unwrap_or_default(),
+        remember_elevation: prev.as_ref().map(|p| p.remember_elevation).unwrap_or(false),
         installed_at,
         updated_at,
         manifest,

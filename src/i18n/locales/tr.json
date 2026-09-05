@@ -406,6 +406,8 @@
     "autostart": "Oturumda başlat",
     "autostartHint": "Oturum açınca bu programı çalıştırır.",
     "autostartDenied": "Bu program autostart iznini bildirmedi.",
+    "rememberAdmin": "Yönetici iznini hatırla",
+    "rememberAdminHint": "Kapalı: program yönetici istediğinde Windows her seferinde sorar. Açık: bir kez onayla, sonraki açılışlarda sormasın.",
     "missing": "Bu program yüklü değil."
   },
   "boot": {

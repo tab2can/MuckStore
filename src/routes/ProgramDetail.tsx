@@ -37,13 +37,21 @@ export function ProgramDetail() {
   const [starting, setStarting] = useState(false);
 
   const program = useMemo(() => {
-    return (
+    const base =
       official.find((p) => p.id === id) ??
       community.find((p) => p.id === id) ??
       discovered.find((p) => p.id === id) ??
       remote ??
-      null
-    );
+      null;
+    if (base && remote && remote.id === id && remote.version) {
+      return {
+        ...base,
+        version: remote.version,
+        installed: remote.installed || base.installed,
+        installedVersion: remote.installedVersion ?? base.installedVersion,
+      };
+    }
+    return base;
   }, [official, community, discovered, id, remote]);
 
   const inst = installed.find((p) => p.id === id);
@@ -53,14 +61,25 @@ export function ProgramDetail() {
   const updated = program ? formatUpdated(program.updatedAt, i18n.language) : undefined;
 
   useEffect(() => {
-    if (!program) {
-      void api.getProgram(id).then(setRemote).catch(() => undefined);
-    }
-  }, [id, program]);
+    void api.getProgram(id).then(setRemote).catch(() => undefined);
+  }, [id]);
 
   useEffect(() => {
-    if (!inst) return;
-    void api.status(inst.id).then((s) => setRunning(s.running));
+    if (!inst) {
+      setRunning(false);
+      return;
+    }
+    let cancel = false;
+    const tick = async () => {
+      const s = await api.status(inst.id);
+      if (!cancel) setRunning(s.running);
+    };
+    void tick();
+    const timer = window.setInterval(() => void tick(), 2500);
+    return () => {
+      cancel = true;
+      window.clearInterval(timer);
+    };
   }, [inst]);
 
   useEffect(() => {

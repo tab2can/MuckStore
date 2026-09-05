@@ -22,6 +22,7 @@ export function ProgramSettings() {
   const [channel, setChannel] = useState(program?.updateChannel === "pre" ? "pre" : "stable");
   const [autostart, setAutostart] = useState(Boolean(program?.autostart));
   const [enabled, setEnabled] = useState(program?.enabled !== false);
+  const [rememberAdmin, setRememberAdmin] = useState(Boolean(program?.rememberElevation));
   const [releases, setReleases] = useState<ProgramRelease[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export function ProgramSettings() {
     setChannel(program.updateChannel === "pre" ? "pre" : "stable");
     setAutostart(Boolean(program.autostart));
     setEnabled(program.enabled !== false);
+    setRememberAdmin(Boolean(program.rememberElevation));
     void api
       .programReleases(program.id)
       .then(setReleases)
@@ -71,6 +73,7 @@ export function ProgramSettings() {
         pinnedVersion: locked ? version : null,
         launchArgs: args,
         updateChannel: channel,
+        rememberElevation: rememberAdmin,
         autostart,
         enabled,
       });
@@ -123,6 +126,16 @@ export function ProgramSettings() {
               { id: "stable", label: t("programSettings.stable") },
               { id: "pre", label: t("programSettings.pre") },
             ]}
+          />
+        </SettingRow>
+        <SettingRow
+          title={t("programSettings.rememberAdmin")}
+          description={t("programSettings.rememberAdminHint")}
+        >
+          <Switch
+            checked={rememberAdmin}
+            onChange={setRememberAdmin}
+            label={t("programSettings.rememberAdmin")}
           />
         </SettingRow>
         <SettingRow title={t("programSettings.enabled")} description={t("programSettings.enabledHint")}>

@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "muck-store"
-version = "1.0.3"
+version = "1.0.4"
 description = "Open-source program store and distribution layer"
 authors = ["Muck Store contributors"]
 edition = "2021"
@@ -44,3 +44,4 @@ parking_lot = "0.12"
 fs_extra = "1"
 uuid = { version = "1", features = ["v4"] }
 futures-util = "0.3"
+sysinfo = "0.35"

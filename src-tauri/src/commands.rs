@@ -53,13 +53,27 @@ pub fn get_app_paths(state: State<AppState>) -> AppPaths {
 }
 
 #[tauri::command]
-pub fn official_catalog(app: AppHandle) -> Vec<CatalogProgram> {
-    crate::catalog::official_catalog(&app)
+pub async fn official_catalog(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Vec<CatalogProgram>, String> {
+    let token = token(&state);
+    let proxy = proxy(&state);
+    let mut programs = crate::catalog::official_catalog(&app);
+    crate::catalog::overlay_latest_versions(&mut programs, token.as_deref(), proxy.as_deref()).await;
+    Ok(programs)
 }
 
 #[tauri::command]
-pub fn community_catalog(app: AppHandle) -> Vec<CatalogProgram> {
-    crate::catalog::community_samples(&app)
+pub async fn community_catalog(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Vec<CatalogProgram>, String> {
+    let token = token(&state);
+    let proxy = proxy(&state);
+    let mut programs = crate::catalog::community_samples(&app);
+    crate::catalog::overlay_latest_versions(&mut programs, token.as_deref(), proxy.as_deref()).await;
+    Ok(programs)
 }
 
 #[tauri::command]
@@ -87,8 +101,16 @@ pub async fn fetch_github_program(
 }
 
 #[tauri::command]
-pub fn get_program(app: AppHandle, id: String) -> Result<CatalogProgram, String> {
-    crate::catalog::find_local(&app, &id).ok_or_else(|| "program not found".into())
+pub async fn get_program(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<CatalogProgram, String> {
+    let mut program = crate::catalog::find_local(&app, &id).ok_or_else(|| "program not found".to_string())?;
+    let token = token(&state);
+    let proxy = proxy(&state);
+    crate::catalog::apply_latest_release(&mut program, token.as_deref(), proxy.as_deref()).await;
+    Ok(program)
 }
 
 #[tauri::command]
@@ -164,12 +186,16 @@ pub async fn start_program(state: State<'_, AppState>, id: String) -> Result<u32
         .get(&id)
         .cloned()
         .ok_or_else(|| "not installed".to_string())?;
+    {
+        let mut mgr = state.processes.lock();
+        if let Some(pid) = mgr.running_pid(&inst) {
+            return Ok(pid);
+        }
+    }
     let isolation = state.settings.lock().isolation_job_object;
-    state
-        .processes
-        .lock()
-        .start(&inst, isolation)
-        .map_err(|e| e.to_string())
+    let (child, pid) = crate::process::spawn_program(&inst, isolation).map_err(|e| e.to_string())?;
+    state.processes.lock().adopt(id, child, isolation);
+    Ok(pid)
 }
 
 #[tauri::command]
@@ -297,6 +323,10 @@ pub fn save_program_install_options(options: ProgramInstallOptions) -> Result<In
     } else {
         "stable".into()
     };
+    if !options.remember_elevation && inst.remember_elevation {
+        crate::process::remove_elevated_task(&options.id);
+    }
+    inst.remember_elevation = options.remember_elevation;
     inst.autostart = options.autostart;
     inst.enabled = options.enabled;
     let saved = inst.clone();

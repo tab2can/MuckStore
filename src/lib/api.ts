@@ -56,6 +56,7 @@ export const api = {
     id: string;
     pinnedVersion?: string | null;
     launchArgs: string;
+    rememberElevation?: boolean;
     updateChannel: string;
     autostart: boolean;
     enabled: boolean;
@@ -123,6 +124,7 @@ function mockInstalledOf(
     autostart: false,
     updateChannel: "stable",
     launchArgs: "",
+    rememberElevation: false,
     installedAt,
     updatedAt,
     manifest,
@@ -515,6 +517,7 @@ function mock(cmd: string, args?: Record<string, unknown>): unknown {
         id: string;
         pinnedVersion?: string | null;
         launchArgs: string;
+        rememberElevation?: boolean;
         updateChannel: string;
         autostart: boolean;
         enabled: boolean;
@@ -526,6 +529,7 @@ function mock(cmd: string, args?: Record<string, unknown>): unknown {
         ...list[i],
         pinnedVersion: options.pinnedVersion,
         launchArgs: options.launchArgs,
+        rememberElevation: options.rememberElevation,
         updateChannel: options.updateChannel,
         autostart: options.autostart,
         enabled: options.enabled,

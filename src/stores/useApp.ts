@@ -231,12 +231,12 @@ export const useApp = create<AppState>((set, get) => ({
             program.id,
             prev
               ? {
-                  ...program,
                   ...prev,
-                  stars: prev.stars ?? program.stars,
-                  forks: prev.forks ?? program.forks,
-                  language: prev.language ?? program.language,
-                  updatedAt: prev.updatedAt ?? program.updatedAt,
+                  ...program,
+                  stars: program.stars ?? prev.stars,
+                  forks: program.forks ?? prev.forks,
+                  language: program.language ?? prev.language,
+                  updatedAt: program.updatedAt ?? prev.updatedAt,
                 }
               : program,
           );

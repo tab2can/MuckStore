@@ -1,41 +1,25 @@
-<p align="center">
-  <img src="branding/icon.svg" width="88" alt="Muck Store"/>
-</p>
+# Muck Store
 
-<h1 align="center">Muck Store</h1>
+**Open-source program store for Windows.** Discover public GitHub apps, verify what they declare, install only that payload, then start, stop, update, and configure them — with no Muck backend and no SDK.
 
-<p align="center">
-  <strong>Open-source program store for Windows.</strong><br/>
-  Discover public GitHub apps, verify what they declare, install only that payload,<br/>
-  then start, stop, update, and configure them — with no Muck backend.
-</p>
-
-<p align="center">
-  <a href="https://github.com/tab2can/MuckStore/releases"><img src="https://img.shields.io/github/v/release/tab2can/MuckStore?style=flat-square&color=dcb06a&label=release" alt="Release"/></a>
-  <img src="https://img.shields.io/badge/Windows-10%20%26%2011-161c26?style=flat-square&labelColor=dcb06a&color=161c26" alt="Windows 10 and 11"/>
-  <img src="https://img.shields.io/badge/license-MIT-6ecf9a?style=flat-square" alt="MIT"/>
-  <img src="https://img.shields.io/badge/no%20SDK-any%20language-9aa4b7?style=flat-square" alt="No SDK"/>
-</p>
-
-<p align="center">
-  <img src="docs/assets/home.gif" width="920" alt="Muck Store home — catalog carousels and program grid"/>
-</p>
+[![Release](https://img.shields.io/github/v/release/tab2can/MuckStore?style=flat-square&color=dcb06a)](https://github.com/tab2can/MuckStore/releases)
+![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%26%2011-161c26?style=flat-square&labelColor=dcb06a)
+![MIT](https://img.shields.io/badge/license-MIT-6ecf9a?style=flat-square)
+![No SDK](https://img.shields.io/badge/no%20SDK-any%20language-9aa4b7?style=flat-square)
 
 ---
 
-## What it is
-
-Muck Store is a **client-only** store. The desktop app talks to GitHub. There is no Muck server that hosts your binary, no SDK to link, and no requirement that programs be written in a particular language.
+The desktop app talks to GitHub. There is no Muck server that hosts your binary, and programs do not need to be written in a particular language.
 
 You publish a normal Windows program. The store:
 
-1. Finds it (official catalog, Discover search, or a pasted `owner/repo`)
+1. Finds it — official catalog, Discover search, or a pasted `owner/repo`
 2. Reads `muck.json`
-3. Verifies license, hashes, and **GitHub Actions attestations** for Release assets
+3. Checks license, hashes, and **GitHub Actions attestations** for Release assets
 4. Asks the user to approve community programs
 5. Installs into `%LOCALAPPDATA%\MuckStore\programs\{id}\{version}\`
 6. Starts the entry with environment variables and optional launch arguments
-7. Checks for updates on a schedule the user chose
+7. Checks for updates on the schedule the user chose
 
 A zip dropped onto Releases by hand is **not** enough. Release files must be built and attested by GitHub Actions **in that same repository**.
 
@@ -46,47 +30,25 @@ A zip dropped onto Releases by hand is **not** enough. Release files must be bui
 | Attested Release asset + SHA-256 | Hash check, provenance check, install |
 | Semver tags (`v1.2.0`) | Update inbox, version picker, rollback folder |
 
-**Shipping a program:** [docs/developer-guide.md](docs/developer-guide.md) · **Manifest fields:** [docs/manifest-spec.md](docs/manifest-spec.md) · **Attestations:** [docs/reproducible-builds.md](docs/reproducible-builds.md) · **Trust model:** [docs/security.md](docs/security.md)
+**Shipping a program:** [developer guide](docs/developer-guide.md) · **Manifest:** [manifest spec](docs/manifest-spec.md) · **Attestations:** [reproducible builds](docs/reproducible-builds.md) · **Trust:** [security](docs/security.md)
 
 ---
 
 ## Features
 
-### Catalog, not a dump of zips
+**Catalog.** Home lists official samples and community programs with stars, language, README screenshots, and permission chips. Discover searches `topic:muck-store` or opens any public `owner/repo` that has a valid manifest.
 
-Home surfaces official samples and community programs: stars, language, screenshots from the README, permission chips. Discover searches `topic:muck-store` or opens any public `owner/repo` that has a valid manifest.
+**Trust you can read.** Official catalog programs are copied from this checkout. Community programs show a verify report (public repo, SPDX license, asset hashes, Actions provenance). You approve; the ledger is `%APPDATA%\MuckStore\trust.json`. A new version or commit asks again. Defender still scans. The store never silently adds an exclusion.
 
-### Trust you can read
+**Library that runs things.** Start and stop from the store. Logs go to `%LOCALAPPDATA%\MuckStore\logs\{id}.log`. Program Settings cover version lock, GitHub release picker, launch arguments (`-test`), stable/preview channel, enabled, autostart, and the install folder.
 
-Official catalog programs are copied from this checkout. Community programs show a verify report (public repo, SPDX license, asset hashes, Actions provenance). You approve; the ledger is `%APPDATA%\MuckStore\trust.json`. A new version or commit asks again. Defender still scans. The store never silently adds an exclusion.
+**Updates on your terms.** Two policies — **store app** and **installed programs** — each Automatic / At startup / Manual.
 
-<p align="center">
-  <img src="docs/assets/trust.gif" width="920" alt="Untrusted Demo page and Approve this program dialog"/>
-</p>
-
-### Library that actually runs things
-
-Start and stop from the store. Logs go to `%LOCALAPPDATA%\MuckStore\logs\{id}.log`. Program Settings (not a hidden schema form) cover version lock, GitHub release picker, launch arguments (`-test`), stable/preview channel, enabled, autostart, and the install folder.
-
-<p align="center">
-  <img src="docs/assets/library.gif" width="920" alt="Library, more menu, and program settings"/>
-</p>
-
-### Updates on your terms
-
-Two policies, not a single toggle: **store app** and **installed programs**, each Automatic / At startup / Manual.
-
-- Automatic still never kills the store window mid-session; a new store build is applied by `muck-updater.exe` at launch.
+- Automatic never kills the store window mid-session; a new store build is applied by `muck-updater.exe` at launch.
 - Periodic checks (6 hours) plus a titlebar download icon when something is waiting.
 - **Update all** applies the store updater and unlocked programs. New catalog items are informational only.
 
-<p align="center">
-  <img src="docs/assets/updates.gif" width="920" alt="Settings appearance and Updates policies"/>
-</p>
-
-### Themes without code
-
-Token-only packs (colors, radius, type). No theme JavaScript. System appearance can follow Windows. See [docs/themes.md](docs/themes.md).
+**Themes without code.** Token-only packs (colors, radius, type). No theme JavaScript. System appearance can follow Windows. See [themes](docs/themes.md).
 
 ---
 
@@ -100,8 +62,6 @@ Download from [Releases](https://github.com/tab2can/MuckStore/releases). Every p
 | **x86 `.exe`** | 32-bit Windows 10 (Windows 11 is 64-bit only) |
 
 The Start Menu opens **muck-updater.exe** (small splash). It checks GitHub for a newer store build, then launches the store. On Windows 10 the installer bootstraps WebView2 if it is missing.
-
-### Data folders
 
 | Location | Role |
 | --- | --- |
@@ -160,8 +120,6 @@ npm run validate
 ```
 
 Shipping **Muck Store itself** (version, tag, NSIS): [docs/releasing.md](docs/releasing.md).
-
-### Layout
 
 | Path | Role |
 | --- | --- |

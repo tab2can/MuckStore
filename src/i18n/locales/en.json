@@ -406,6 +406,8 @@
     "autostart": "Start with Windows",
     "autostartHint": "Launches this program at sign-in.",
     "autostartDenied": "This program did not declare the autostart permission.",
+    "rememberAdmin": "Remember administrator",
+    "rememberAdminHint": "Off: Windows asks every time this program needs administrator. On: approve once, then later starts skip the prompt.",
     "missing": "This program is not installed."
   },
   "boot": {

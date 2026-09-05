@@ -162,11 +162,20 @@ async fn cached_get(
     url: &str,
     token: Option<&str>,
 ) -> anyhow::Result<String> {
+    cached_get_ttl(http, url, token, 600).await
+}
+
+async fn cached_get_ttl(
+    http: &reqwest::Client,
+    url: &str,
+    token: Option<&str>,
+    ttl_secs: u64,
+) -> anyhow::Result<String> {
     let key = crate::security::sha256_bytes(url.as_bytes());
     let cache_file = paths::cache_dir().join("github").join(format!("{key}.json"));
     if let Ok(meta) = std::fs::metadata(&cache_file) {
         if let Ok(modified) = meta.modified() {
-            if modified.elapsed().map(|d| d.as_secs() < 600).unwrap_or(false) {
+            if modified.elapsed().map(|d| d.as_secs() < ttl_secs).unwrap_or(false) {
                 if let Ok(raw) = std::fs::read_to_string(&cache_file) {
                     return Ok(raw);
                 }
@@ -295,7 +304,55 @@ pub async fn fetch_github_program(
         program.installed = true;
         program.installed_version = Some(inst.version.clone());
     }
+    apply_latest_release(&mut program, token, proxy).await;
     Ok(program)
+}
+
+pub async fn apply_latest_release(
+    program: &mut CatalogProgram,
+    token: Option<&str>,
+    proxy: Option<&str>,
+) {
+    if program.source_github.is_empty() {
+        return;
+    }
+    if let Ok(Some((tag, _, _))) = latest_release(&program.source_github, token, proxy, false).await {
+        if !tag.is_empty() {
+            program.version = tag;
+        }
+    }
+}
+
+pub async fn overlay_latest_versions(
+    programs: &mut [CatalogProgram],
+    token: Option<&str>,
+    proxy: Option<&str>,
+) {
+    let futs: Vec<_> = programs
+        .iter()
+        .map(|p| {
+            let github = p.source_github.clone();
+            async move {
+                if github.is_empty() {
+                    None
+                } else {
+                    latest_release(&github, token, proxy, false)
+                        .await
+                        .ok()
+                        .flatten()
+                        .map(|(tag, _, _)| tag)
+                }
+            }
+        })
+        .collect();
+    let tags = futures_util::future::join_all(futs).await;
+    for (program, tag) in programs.iter_mut().zip(tags) {
+        if let Some(tag) = tag {
+            if !tag.is_empty() {
+                program.version = tag;
+            }
+        }
+    }
 }
 
 async fn fetch_raw(
@@ -431,6 +488,7 @@ pub async fn search_github_topic(
             }
         }
     }
+    overlay_latest_versions(&mut out, token, proxy).await;
     Ok(out)
 }
 
@@ -483,7 +541,7 @@ async fn fetch_releases(
     let github = github.replace("https://github.com/", "");
     let http = client(token, proxy)?;
     let url = format!("https://api.github.com/repos/{github}/releases");
-    let raw = cached_get(&http, &url, token).await?;
+    let raw = cached_get_ttl(&http, &url, token, 90).await?;
     Ok(serde_json::from_str(&raw)?)
 }
 

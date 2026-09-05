@@ -352,6 +352,8 @@ pub struct InstalledProgram {
     pub update_channel: String,
     #[serde(default)]
     pub launch_args: String,
+    #[serde(default)]
+    pub remember_elevation: bool,
     pub installed_at: String,
     #[serde(default)]
     pub updated_at: String,
@@ -579,6 +581,8 @@ pub struct ProgramInstallOptions {
     pub launch_args: String,
     #[serde(default)]
     pub update_channel: String,
+    #[serde(default)]
+    pub remember_elevation: bool,
     pub autostart: bool,
     pub enabled: bool,
 }

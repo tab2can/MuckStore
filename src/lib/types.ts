@@ -105,6 +105,7 @@ export interface InstalledProgram {
   pinnedVersion?: string | null;
   updateChannel: string;
   launchArgs?: string;
+  rememberElevation?: boolean;
   installedAt: string;
   updatedAt?: string | null;
   manifest: MuckManifest;

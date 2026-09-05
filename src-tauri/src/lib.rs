@@ -8,6 +8,7 @@ mod install;
 mod models;
 mod paths;
 mod process;
+mod procsnap;
 mod runtime;
 mod security;
 mod settings;
@@ -126,7 +127,13 @@ pub fn run() {
                                         continue;
                                     }
                                 }
-                                if mgr.start(inst, false).is_ok() {
+                                if mgr.running_pid(inst).is_some() {
+                                    continue;
+                                }
+                                drop(mgr);
+                                if let Ok((child, _)) = crate::process::spawn_program(inst, false) {
+                                    let mut mgr = state.processes.lock();
+                                    mgr.adopt(id.clone(), child, false);
                                     if let Some(r) = mgr.children.get_mut(&id) {
                                         r.restarts += 1;
                                     }
@@ -221,7 +228,9 @@ fn autostart_enabled_programs(app: &tauri::App) {
     let isolation = state.settings.lock().isolation_job_object;
     for inst in registry.programs.values() {
         if inst.autostart && inst.enabled {
-            let _ = state.processes.lock().start(inst, isolation);
+            if let Ok((child, _)) = crate::process::spawn_program(inst, isolation) {
+                state.processes.lock().adopt(inst.id.clone(), child, isolation);
+            }
         }
     }
 }
